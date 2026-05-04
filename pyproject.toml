@@ -23,6 +23,14 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.ruff]                         
+line-length = 88               
+target-version = "py310"                        # Python 3.10 or above is needed
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP"]             # Checks for Errors, warnings, Pyflakes logical errors, import sorting and pyupgrade 
+ignore = ["E501"]                               # Line length violations are ignored
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
