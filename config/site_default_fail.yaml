@@ -1,0 +1,88 @@
+version: "1.0"
+
+sites:
+  - id: "LACT-001"
+    name: "Oil Sands Terminal"
+    description: "Main LACT terminal"
+    location: "Alberta, Canada"
+    opc_ua_endpoint: "opc.tcp://localhost:4840"   #using the local machine as the OPC UA server for now
+
+    pi_historian:
+      enabled: true
+      export_path: "./data/pi_exports/LACT-001"
+      tag_prefix: "OIL_SANDS"
+
+    channels:
+      - id: "FT-101"
+        name: "Inlet Flow Rate"
+        opc_node: "ns=2;s=LACT001.FT101.PV"
+        pi_tag: "OIL_SANDS.FT101.PV"
+        unit: "m3"
+        type: "flow"
+        poll_interval_s: 5
+        thresholds:
+          low_low: 900.0
+          low: 50.0
+          high: 450.0
+          high_high: 500.0
+
+      - id: "PT-201"
+        name: "Inlet Pressure"                     #This tracks the pressure upstream of the pump
+        opc_node: "ns=2;s=LACT001.PT201.PV"
+        pi_tag: "OIL_SANDS.PT201.PV"
+        unit: "kPa"
+        type: "pressure"
+        poll_interval_s: 0
+        thresholds:
+          low_low: 700.0
+          low: 400.0
+          high: 800.0
+          high_high: 950.0
+
+      - id: "TT-301"
+        name: "Product Temperature"
+        opc_node: "ns=2;s=LACT001.TT301.PV"
+        pi_tag: "OIL_SANDS.TT301.PV"
+        poll_interval_s: 10
+        thresholds:
+          low_low: -5.0
+          low: 5.0
+          high: 35.0
+          high_high: 45.0
+
+      - id: "LT-401"
+        name: "Tank 1 Level"        
+        opc_node: "ns=2;s=LACT001.LT401.PV"
+        pi_tag: "OIL_SANDS.LT401.PV"
+        unit: "m"
+        type: "level"
+        poll_interval_s: 15
+        thresholds:               #Assuming the tank is 10 meters high
+          low_low: 1.0            #5% of the tank height
+          low: 2.0                #10% of the tank height
+          high: 8.0               #80% of the tank height
+          high_high: 9.0          #90% of the tank height
+
+      - id: "VT-501"
+        name: "Pump 1 Vibration"    #Asuuming that the vibration can be measured with a sensor directly on the pump (using the movement of the pump as a proxy for the vibration)
+        opc_node: "ns=2;s=LACT001.VT501.PV"
+        pi_tag: "OIL_SANDS.VT501.PV"
+        unit: "mm/s"
+        type: "vibration"
+        poll_interval_s: 2
+        thresholds:
+          low_low: 0.0  
+          low: 0.0
+          high: 7.1
+          high_high: 11.2
+
+    detection:
+      spike:
+        enabled: true
+        z_threshold: 3.5          #number of standard deviations from the mean to trigger an alert
+        min_samples: 10           #minimum number of samples to trigger an alert
+      drift:
+        enabled: true
+        sum_threshold: 5.0        #threshold for the sum of the differences between the current and previous samples
+        sum_slack: 0.5            #slack for the sum of the differences between the current and previous samples
+        window_s: 300             #window size in seconds for the sum of the differences between the current and previous samples  
