@@ -1,7 +1,8 @@
 """CLI (Command Line Interface) to be used to interact with pipesense"""
+
 import argparse
-from operator import add
 import sys
+
 from pipesense import __version__
 
 
@@ -11,18 +12,24 @@ def parse_args(argv=None):
         description=(
             "Tool for pipeline production real-time data acquisition, analysis, historical simulation and leak detection."
         ),
-        formatter_class=_Formatter
+        formatter_class=_Formatter,
     )
-    parser.add_argument("--version", action="version",
-                        version=f"%(prog)s {__version__}")
     parser.add_argument(
-        "--config", default="config/site_default.yaml", metavar="FILE",
-        help="Path to site configuration"
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
-    
+    parser.add_argument(
+        "--config",
+        default="config/site_default.yaml",
+        metavar="FILE",
+        help="Path to site configuration",
+    )
+
     sub = parser.add_subparsers(dest="command", required=True, metavar="")
 
-    p_val = sub.add_parser("validate", help="Validate a site configuration file (valid sample located at config/site_default.yaml, invalid at config/site_default_fail.yaml)")
+    p_val = sub.add_parser(
+        "validate",
+        help="Validate a site configuration file (valid sample located at config/site_default.yaml, invalid at config/site_default_fail.yaml)",
+    )
     p_val.add_argument("--config", dest="config_override", default=None)
 
     p_info = sub.add_parser("info", help="Show site and channel summary")
@@ -30,7 +37,8 @@ def parse_args(argv=None):
 
     return parser.parse_args(argv)
 
-#This formatter class is to replace the typical {} below the positional arguments
+
+# This formatter class is to replace the typical {} below the positional arguments
 class _Formatter(argparse.HelpFormatter):
     def _format_action(self, action):
         if action.nargs == argparse.PARSER:
@@ -40,8 +48,10 @@ class _Formatter(argparse.HelpFormatter):
             )
         return super()._format_action(action)
 
+
 def _load(config_path: str):
     from pipesense.config.loader import ConfigError, load_config
+
     try:
         return load_config(config_path)
     except ConfigError as exc:
@@ -73,7 +83,7 @@ def main():
                 sys.exit(1)
             sites = [site]
         for site in sites:
-            print(f"\n{'='*52}")
+            print(f"\n{'=' * 52}")
             print(f"Site:       {site.id} — {site.name}")
             print(f"Location:   {site.location}")
             print(f"Endpoint:   {site.opc_ua_endpoint}")

@@ -1,13 +1,17 @@
 """Schema for pipesense site configuration."""
+
 from dataclasses import dataclass, field
 from typing import Literal
 
-ChannelType = Literal["flow", "pressure", "temperature", "level", "vibration"]      #Five parameters to monitor and control
+ChannelType = Literal[
+    "flow", "pressure", "temperature", "level", "vibration"
+]  # Five parameters to monitor and control
 
 
 @dataclass
 class Thresholds:
     """Alarm thresholds(Configured similar to the industry conventions for SCADA)."""
+
     high_high: float
     high: float
     low: float
@@ -27,7 +31,7 @@ class Thresholds:
 
 
 @dataclass
-class ChannelConfig:   #Config for individual signals incl. an unique id, name and pi tag address etc.
+class ChannelConfig:  # Config for individual signals incl. an unique id, name and pi tag address etc.
     id: str
     name: str
     description: str
@@ -70,6 +74,7 @@ class PIHistorianConfig:
 @dataclass
 class SiteConfig:
     """Complete configuration for a single monitored site."""
+
     id: str
     name: str
     description: str

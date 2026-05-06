@@ -1,10 +1,18 @@
 """YAML configuration loader and validator for pipesense."""
+
 from pathlib import Path
+
 import yaml
+
 from pipesense.config.schema import (
-    ChannelConfig, DetectionConfig, DriftDetectionConfig,
-    PIHistorianConfig, PipesenseConfig, SiteConfig,
-    SpikeDetectionConfig, Thresholds,                           # Trailing comma :)
+    ChannelConfig,
+    DetectionConfig,
+    DriftDetectionConfig,
+    PIHistorianConfig,
+    PipesenseConfig,
+    SiteConfig,
+    SpikeDetectionConfig,
+    Thresholds,  # Trailing comma :)
 )
 
 
@@ -16,7 +24,9 @@ def _parse_thresholds(data: dict, channel_id: str) -> Thresholds:
     required = {"low_low", "low", "high", "high_high"}
     missing = required - set(data.keys())
     if missing:
-        raise ConfigError(f"Channel {channel_id!r} missing threshold keys: {missing}")             # Do we need all four? Let's keep them for now, can make low_low, high_high optional if needed
+        raise ConfigError(
+            f"Channel {channel_id!r} missing threshold keys: {missing}"
+        )  # Do we need all four? Let's keep them for now, can make low_low, high_high optional if needed
     t = Thresholds(
         low_low=float(data["low_low"]),
         low=float(data["low"]),
@@ -32,15 +42,23 @@ def _parse_thresholds(data: dict, channel_id: str) -> Thresholds:
 
 
 def _parse_channel(data: dict) -> ChannelConfig:
-    required = {"id", "name", "opc_node", "pi_tag", "unit",
-                "type", "poll_interval_s", "thresholds"}
+    required = {
+        "id",
+        "name",
+        "opc_node",
+        "pi_tag",
+        "unit",
+        "type",
+        "poll_interval_s",
+        "thresholds",
+    }
     missing = required - set(data.keys())
     if missing:
-        raise ConfigError(f"Channel {data.get('id','?')!r} missing keys: {missing}")
+        raise ConfigError(f"Channel {data.get('id', '?')!r} missing keys: {missing}")
     valid_types = {"flow", "pressure", "temperature", "level", "vibration"}
     if data["type"] not in valid_types:
         raise ConfigError(
-            f"Channel {data['id']!r} has invalid type {data['type']!r}. "                           #Support for other units like Imperial/Metric or alternates?
+            f"Channel {data['id']!r} has invalid type {data['type']!r}. "  # Support for other units like Imperial/Metric or alternates?
             f"Must be one of: {valid_types}"
         )
     if int(data["poll_interval_s"]) <= 0:
@@ -80,7 +98,7 @@ def _parse_site(data: dict) -> SiteConfig:
     required = {"id", "name", "opc_ua_endpoint", "channels"}
     missing = required - set(data.keys())
     if missing:
-        raise ConfigError(f"Site {data.get('id','?')!r} missing keys: {missing}")
+        raise ConfigError(f"Site {data.get('id', '?')!r} missing keys: {missing}")
     if not data["channels"]:
         raise ConfigError(f"Site {data['id']!r} must have at least one channel")
     pi = data.get("pi_historian", {})
