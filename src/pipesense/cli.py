@@ -35,6 +35,8 @@ def parse_args(argv=None):
     p_info = sub.add_parser("info", help="Show site and channel summary")
     p_info.add_argument("--site", default=None, help="Site ID (default: all)")
 
+    sub.add_parser("status", help="Show data source configuration for a site")
+
     return parser.parse_args(argv)
 
 
@@ -72,6 +74,21 @@ def main():
         print(f"  {n_sites} site(s), {n_channels} channel(s) total")
         for site in config.sites:
             print(f"  [{site.id}] {site.name} — {len(site.channels)} channels")
+
+    elif args.command == "status":
+        config = _load(config_path)
+        for site in config.sites:
+            print(f"\n[{site.id}] {site.name}")
+            print(f"  OPC-UA endpoint : {site.opc_ua_endpoint}")
+            pi = site.pi_historian
+            print(f"  PI historian    : {'enabled' if pi.enabled else 'disabled'}")
+            if pi.enabled:
+                print(f"  PI export path  : {pi.export_path}")
+                print(f"  PI tag prefix   : {pi.tag_prefix}")
+            print(f"  Channels ({len(site.channels)}):")
+            for ch in site.channels:
+                print(f"    {ch.id:10s} {ch.type:12s} "
+                      f"[{ch.unit}] poll={ch.poll_interval_s}s")
 
     elif args.command == "info":
         config = _load(config_path)
