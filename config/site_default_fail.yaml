@@ -83,6 +83,6 @@ sites:
         min_samples: 10           #minimum number of samples to trigger an alert
       drift:
         enabled: true
-        sum_threshold: 5.0        #threshold for the sum of the differences between the current and previous samples
-        sum_slack: 0.5            #slack for the sum of the differences between the current and previous samples
+        cusum_threshold: 5.0        #threshold for the sum of the differences between the current and previous samples
+        cusum_slack: 0.5            #slack for the sum of the differences between the current and previous samples
         window_s: 300             #window size in seconds for the sum of the differences between the current and previous samples  

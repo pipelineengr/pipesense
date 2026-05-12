@@ -116,8 +116,8 @@ detection:
     min_samples: 10           
   drift:
     enabled: true
-    sum_threshold: 5.0        
-    sum_slack: 0.5            
+    cusum_threshold: 5.0        
+    cusum_slack: 0.5            
     window_s: 300             
 ```
 
