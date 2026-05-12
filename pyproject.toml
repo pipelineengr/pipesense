@@ -38,6 +38,7 @@ ignore = ["E501"]                               # Line length violations are ign
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-s -v"                               # Adding this for some additional logging during testing
 
 [tool.coverage.run]
 source = ["pipesense"]
