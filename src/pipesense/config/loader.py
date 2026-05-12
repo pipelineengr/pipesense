@@ -87,8 +87,8 @@ def _parse_detection(data: dict) -> DetectionConfig:
         ),
         drift=DriftDetectionConfig(
             enabled=d.get("enabled", True),
-            sum_threshold=float(d.get("sum_threshold", 5.0)),
-            sum_slack=float(d.get("sum_slack", 0.5)),
+            cusum_threshold=float(d.get("cusum_threshold", 5.0)),
+            cusum_slack=float(d.get("cusum_slack", 0.5)),
             window_s=int(d.get("window_s", 300)),
         ),
     )

@@ -158,7 +158,7 @@ CI runs the matrix on Python 3.10+, planning to cover atleast 80%.
 | `h5py >= 3.10` | HDF5 archiving |
 | `pyyaml` | Config loading |
 | `click` | CLI |
-| `numpy` | Rolling stats, CUSUM |
+| `numpy` | Rolling stats, Cumulative Sum |
 | `pytest` | Test suite |
 
 ---
