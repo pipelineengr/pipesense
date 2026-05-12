@@ -35,8 +35,8 @@ pipesense/
 │   └── alarm_log.py             # AlarmLog — JSON Lines with rotation
 └── cli.py                       # entry point: validate, info, status, run
 ```
+I'm using Cursor to fill out the comments, clean up the code and add print statements (commented) for debugging
 
----
 
 ## Quickstart
 
