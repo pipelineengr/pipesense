@@ -175,7 +175,7 @@ class PIHistorianSource(DataSource):
     def status(self) -> SourceStatus:
         return SourceStatus(
             connected=self._connected,
-            source_type="PI Historian",
+            source_type="PI Historian",         #Source name for the generated PI data
             endpoint=str(self._export_dir),
             n_tags=len(self._data),
             last_error=self._last_error,

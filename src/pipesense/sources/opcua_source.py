@@ -97,7 +97,7 @@ class OpcUaSource(DataSource):
     def status(self) -> SourceStatus:
         return SourceStatus(
             connected=self._client is not None,
-            source_type="OPC-UA",
+            source_type="OPC-UA",       #Source name for the virtual OPC-UA Server 
             endpoint=self._endpoint,
             n_tags=self._tag_count,
             last_error=self._last_error,
