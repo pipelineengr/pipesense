@@ -12,10 +12,10 @@ ChannelType = Literal[
 class Thresholds:
     """Alarm thresholds(Configured similar to the industry conventions for SCADA)."""
 
-    high_high: float
-    high: float
-    low: float
     low_low: float
+    low: float
+    high: float
+    high_high: float
 
     def check(self, value: float) -> str | None:
         """Return alarm level if value breaches a threshold, else None."""
@@ -47,6 +47,7 @@ class ChannelConfig:  # Config for individual signals incl. an unique id, name a
 class SpikeDetectionConfig:
     enabled: bool = True
     z_threshold: float = 3.5
+    crit_sigma: float = 5.0,
     min_samples: int = 10
 
 

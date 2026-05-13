@@ -83,6 +83,7 @@ def _parse_detection(data: dict) -> DetectionConfig:
         spike=SpikeDetectionConfig(
             enabled=s.get("enabled", True),
             z_threshold=float(s.get("z_threshold", 3.5)),
+            crit_sigma=float(s.get("crit_sigma", 5.0)),
             min_samples=int(s.get("min_samples", 10)),
         ),
         drift=DriftDetectionConfig(

@@ -33,26 +33,26 @@ class DetectionEngine:
             if detection.spike.enabled:
                 detectors.append(
                     SpikeDetector(
-                        tag_id=ch.tag_id,
-                        window=detection.spike.window,
-                        warn_sigma=detection.spike.warn_sigma,
+                        tag_id=ch.id,
+                        window=detection.spike.min_samples,
+                        warn_sigma=detection.spike.z_threshold,
                         crit_sigma=detection.spike.crit_sigma,
                     )
                 )
 
-            if detection.drift.enabled and ch.tag_id in self._baseline_stats:
-                stats = self._baseline_stats[ch.tag_id]
+            if detection.drift.enabled and ch.id in self._baseline_stats:
+                stats = self._baseline_stats[ch.id]
                 detectors.append(
                     DriftDetector(
-                        tag_id=ch.tag_id,
+                        tag_id=ch.id,
                         baseline_mean=stats["mean"],
                         baseline_std=stats["std"],
-                        k=detection.drift.k,
-                        h=detection.drift.h,
+                        k=detection.drift.cusum_slack,
+                        h=detection.drift.cusum_threshold,
                     )
                 )
 
-            self._detectors[ch.tag_id] = detectors
+            self._detectors[ch.id] = detectors
             # Print statement to show which detectors are configured for each channel
             # in the YAML file enable this to confirm all the detectors are showing up
             # and to check if any channels that got skipped due to missing baseline values.
@@ -84,9 +84,12 @@ class DetectionEngine:
 
     def reset(self, tag_id: Optional[str] = None) -> None:
         targets = [tag_id] if tag_id else list(self._detectors.keys())
-        # Print statement to show which channels are being reset —
+        
+        # Print statement to show which channels are being reset
         # enable this to confirm reset() is targeting the right tags.
+        
         # print(f"[DetectionEngine] resetting detectors for tags={targets}")
+        
         for tid in targets:
             for det in self._detectors.get(tid, []):
                 det.reset()

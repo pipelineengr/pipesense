@@ -57,9 +57,11 @@ class SpikeDetector(Detector):
         #       f"reading #{self._reading_count} value={value:.3f} ready={self.ready}")
 
         if not self.ready:
+            self._buffer.append(value)
             return None
 
         mean, std = self._rolling_stats()
+        self._buffer.append(value)
         z = abs(value - mean) / std
 
         # Print statement to show the z-score for every reading once the detector is armed

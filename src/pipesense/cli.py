@@ -45,6 +45,16 @@ def parse_args(argv=None):
         help="Path to site config YAML (overrides root --config)"
     )
 
+    p_run = sub.add_parser("run", help="Start a run (not yet implemented)")
+    p_run.add_argument(
+        "--config", dest="config_override", default=None,
+        help="Path to site config YAML (overrides root --config)"
+    )
+    p_run.add_argument(
+        "--duration", type=int, default=None, metavar="SECONDS",
+        help="Stop after this many seconds (default: run until stopped manually)"
+    )
+
     return parser.parse_args(argv)
 
 
@@ -71,7 +81,7 @@ def _load(config_path: str):
 
 def main():
     args = parse_args()
-    config_override = getattr(args, "config_override", None)  # ← NEW: resolve override
+    config_override = getattr(args, "config_override", None)  
     config_path = config_override or args.config
 
     if args.command == "validate":
@@ -121,6 +131,11 @@ def main():
                     f"{ch.name:30s} [{ch.unit}] "
                     f"poll={ch.poll_interval_s}s"
                 )
+
+    elif args.command == "run":
+        raise NotImplementedError(
+            "The 'run' command is not yet implemented."
+        )
 
 
 if __name__ == "__main__":

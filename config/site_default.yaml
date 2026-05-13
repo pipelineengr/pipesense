@@ -81,7 +81,8 @@ sites:
     detection:
       spike:
         enabled: true
-        z_threshold: 3.5          #number of standard deviations from the mean to trigger an alert
+        z_threshold: 3.5          #number of standard deviations from the mean to trigger an warning
+        crit_sigma: 5.0           #number of standard deviations from the mean to trigger an critical error
         min_samples: 10           #minimum number of samples to trigger an alert
       drift:
         enabled: true
