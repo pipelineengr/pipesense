@@ -34,8 +34,16 @@ def parse_args(argv=None):
 
     p_info = sub.add_parser("info", help="Show site and channel summary")
     p_info.add_argument("--site", default=None, help="Site ID (default: all)")
+    p_info.add_argument(
+        "--config", dest="config_override", default=None,
+        help="Path to site config YAML (overrides root --config)"
+    )
 
-    sub.add_parser("status", help="Show data source configuration for a site")
+    p_status = sub.add_parser("status", help="Show data source configuration for a site")
+    p_status.add_argument(
+        "--config", dest="config_override", default=None,
+        help="Path to site config YAML (overrides root --config)"
+    )
 
     return parser.parse_args(argv)
 
@@ -63,7 +71,8 @@ def _load(config_path: str):
 
 def main():
     args = parse_args()
-    config_path = args.config
+    config_override = getattr(args, "config_override", None)  # ← NEW: resolve override
+    config_path = config_override or args.config
 
     if args.command == "validate":
         path = args.config_override or config_path
