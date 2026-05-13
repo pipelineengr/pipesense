@@ -47,7 +47,6 @@ class SpikeDetector(Detector):
             return None
 
         value = reading.value
-        self._buffer.append(value)
         self._reading_count += 1
 
         # Print statement to show buffer fill progress during warm-up

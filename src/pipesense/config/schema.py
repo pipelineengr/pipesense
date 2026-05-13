@@ -47,7 +47,7 @@ class ChannelConfig:  # Config for individual signals incl. an unique id, name a
 class SpikeDetectionConfig:
     enabled: bool = True
     z_threshold: float = 3.5
-    crit_sigma: float = 5.0,
+    crit_sigma: float = 5.0
     min_samples: int = 10
 
 
