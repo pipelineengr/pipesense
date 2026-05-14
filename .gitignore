@@ -7,6 +7,6 @@ dist/
 htmlcov/
 .ruff_cache/
 .pytest_cache/
-data/pi_exports/
+data/
 *.h5
 *.jsonl

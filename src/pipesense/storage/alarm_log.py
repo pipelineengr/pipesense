@@ -55,7 +55,8 @@ class AlarmLog:
     
     def open(self) -> "AlarmLog":
         self._connection = sqlite3.connect(self.path)
-        
+        self._connection.execute("PRAGMA journal_mode=WAL")  #Added a workaround until a proper queue system can be added
+
         # Print statement to confirm the database opened and show path, run_id, and site_id
         # pair with ArchiveWriter's open print to see both tables initialise together
         # print(f"[AlarmLog] opened  db={self.path}  run_id={self.run_id!r}  site_id={self.site_id!r}")

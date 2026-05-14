@@ -47,6 +47,7 @@ class ArchiveWriter:
 
     def open(self) -> "ArchiveWriter":
         self._conn = sqlite3.connect(self.path)
+        self._conn.execute("PRAGMA journal_mode=WAL")       #Added a workaround until a proper queue system can be added
         self._conn.executescript(_CREATE_READINGS)
         self._conn.commit()
         
