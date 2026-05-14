@@ -9,6 +9,7 @@ from pipesense.sources.pi_source import PIHistorianSource
 from pipesense.sources.simulate import CHANNEL_SIMULATORS
 
 
+
 @pytest.fixture
 def site():
     config = load_config("config/site_default.yaml")
@@ -216,8 +217,8 @@ def test_pi_source_implements_datasource(pi_source):
     # [ASSERT] To confirm the MRO (method resolution order)
     # and verify PIHistorianSource inherits from DataSource correctly.
     # Can fail this by breaking the inheritance chain
-    print(f"\n[ASSERT] PIHistorianSource MRO: "
-         f"{[c.__name__ for c in type(pi_source).__mro__]}")
-    print(f"[ASSERT] isinstance check: {isinstance(pi_source, DataSource)}")
+    #print(f"\n[ASSERT] PIHistorianSource MRO: "
+    #     f"{[c.__name__ for c in type(pi_source).__mro__]}")
+    #print(f"[ASSERT] isinstance check: {isinstance(pi_source, DataSource)}")
 
     assert isinstance(pi_source, DataSource)

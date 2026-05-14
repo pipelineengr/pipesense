@@ -44,11 +44,11 @@ def tmp_db(tmp_path):
 def test_open_creates_readings_table(tmp_db):
     with tmp_db:
         pass
-    conn = sqlite3.connect(tmp_db.path)
+    connection = sqlite3.connect(tmp_db.path)
     try:
-        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        tables = connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     finally:
-        conn.close()
+        connection.close()
     assert ("readings",) in tables
 
 
