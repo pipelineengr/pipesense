@@ -86,4 +86,8 @@ sites:
         enabled: true
         cusum_threshold: 5.0        #threshold for the sum of the differences between the current and previous samples
         cusum_slack: 0.5            #slack for the sum of the differences between the current and previous samples
-        window_s: 300             #window size in seconds for the sum of the differences between the current and previous samples  
+        window_s: 300             #window size in seconds for the sum of the differences between the current and previous samples 
+
+storage:
+  db_path: "data/PipesenseStorage.db"
+  site_id: "LACT-001"

@@ -2,9 +2,17 @@
 
 import argparse
 import sys
+import signal
+import time as _time
+
+from datetime import datetime, timezone
 
 from pipesense import __version__
-
+from pipesense.sources.base import TagReading
+from pipesense.sources.simulate import CHANNEL_SIMULATORS
+from pipesense.detection.engine import DetectionEngine
+from pipesense.storage.archive import ArchiveWriter
+from pipesense.storage.alarm_log import AlarmLog
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
@@ -133,9 +141,67 @@ def main():
                 )
 
     elif args.command == "run":
-        raise NotImplementedError(
-            "The 'run' command is not yet implemented."
-        )
+        config  = _load(config_path)
+        site    = config.sites[0]        # DetectionEngine takes SiteConfig
+        storage = config.storage
+        run_id  = f"run_{int(_time.time())}"
+
+        # Print statement to confirm db path, run_id, and site_id before any files are created — a wrong path here is far easier to spot than a downstream error
+        # print(f"[run] db={storage.db_path!r}  run_id={run_id!r}  site_id={storage.site_id!r}")
+
+        engine   = DetectionEngine(site)
+        duration = getattr(args, "duration", None)
+        running  = True
+        start    = _time.monotonic()
+
+        def _stop(sig, frame):
+            nonlocal running
+            running = False
+            # Print statement to confirm which OS signal triggered the shutdown — useful when debugging unexpected exits under Docker or systemd
+            # print(f"[run] shutdown signal received  sig={sig}")
+
+        signal.signal(signal.SIGINT,  _stop)
+        signal.signal(signal.SIGTERM, _stop)
+
+        print(f"Starting run — db: {storage.db_path}  run_id: {run_id}")
+
+        with ArchiveWriter(storage.db_path, run_id=run_id, site_id=storage.site_id) as archive, \
+            AlarmLog(storage.db_path,      run_id=run_id, site_id=storage.site_id) as alarm_log:
+
+            while running:
+                if duration is not None and (_time.monotonic() - start) >= duration:
+                    break
+
+                now = datetime.now(timezone.utc)
+
+                for ch in site.channels:
+                    sim_fn = CHANNEL_SIMULATORS.get(ch.type)
+                    if sim_fn is None:
+                        continue
+
+                    reading = TagReading(
+                        tag_id=ch.id,
+                        value=sim_fn(),
+                        timestamp=now,
+                        quality="Good",
+                        unit=ch.unit,
+                    )
+
+                    # Print statement to show every raw reading entering the pipeline — enable briefly to verify all 5 channels are polling, disable during normal runs
+                    # print(f"[run] polled  tag={reading.tag_id!r}  value={reading.value:.4f}")
+
+                    archive.write(reading)
+
+                    for event in engine.process(reading):
+                        alarm_log.append(event)
+                        # Print statement to show each alarm event emitted by the detection engine — severity, tag, and message in one line for quick triage
+                        # print(f"[run] alarm  [{event.severity.value}] {event.tag_id}: {event.message}")
+                        print(f"  [{event.severity.value}] {event.tag_id}: {event.message}")
+
+                archive.flush()
+                _time.sleep(1.0)
+
+        print("Run complete.")
 
 
 if __name__ == "__main__":

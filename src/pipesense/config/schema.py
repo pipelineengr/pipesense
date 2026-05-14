@@ -71,6 +71,11 @@ class PIHistorianConfig:
     export_path: str = "./data/pi_exports"
     tag_prefix: str = ""
 
+@dataclass
+class StorageConfig:
+    """SQLite storage paths and site identifier."""
+    db_path: str = "data/PipesenseStorage.db"
+    site_id: str = "unknown"
 
 @dataclass
 class SiteConfig:
@@ -100,6 +105,7 @@ class SiteConfig:
 class PipesenseConfig:
     version: str
     sites: list[SiteConfig]
+    storage: StorageConfig = field(default_factory=StorageConfig)
 
     def get_site(self, site_id: str) -> SiteConfig | None:
         return next((s for s in self.sites if s.id == site_id), None)

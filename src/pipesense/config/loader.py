@@ -8,6 +8,7 @@ from pipesense.config.schema import (
     ChannelConfig,
     DetectionConfig,
     DriftDetectionConfig,
+    StorageConfig,
     PIHistorianConfig,
     PipesenseConfig,
     SiteConfig,
@@ -118,6 +119,13 @@ def _parse_site(data: dict) -> SiteConfig:
         ),
     )
 
+def _parse_storage(data: dict) -> StorageConfig:
+    """Parse the storage: block, the values have defaults."""
+    return StorageConfig(
+        db_path=data.get("db_path", "data/PipesenseStorage.db"),
+        site_id=data.get("site_id", "unknown"),
+    )
+
 
 def load_config(path: str | Path) -> PipesenseConfig:
     """Load and validate a pipesense YAML config file.
@@ -136,7 +144,9 @@ def load_config(path: str | Path) -> PipesenseConfig:
         raise ConfigError(f"Config must be a YAML mapping, got: {type(raw)}")
     if "sites" not in raw or not raw["sites"]:
         raise ConfigError("Config must contain at least one site under 'sites'")
+    storage = _parse_storage(raw.get("storage", {}))
     return PipesenseConfig(
         version=str(raw.get("version", "1.0")),
         sites=[_parse_site(s) for s in raw["sites"]],
+        storage=storage,
     )
