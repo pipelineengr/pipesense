@@ -25,12 +25,6 @@ def site():
 
 @pytest.fixture
 def pi_export_dir(tmp_path, site):
-    generate_pi_export(site, tmp_path / "pi", duration_hours=1.0, interval_s=5)
-    return tmp_path / "pi"
-
-
-@pytest.fixture
-def pi_export_dir(tmp_path, site):
     output = tmp_path / "pi"
     # print(f"\n[FIXTURE] generating PI exports → {output}")
 
@@ -99,29 +93,26 @@ def test_tag_reading_bad_factory():
     assert math.isnan(r.value)
 
 
-def test_pi_source_connects(pi_source):
-    asyncio.run(pi_source.connect())
-    status = pi_source.status()
+async def test_pi_source_connects(pi_source):
+    async with pi_source:
+        status = pi_source.status()
+    assert status.connected
     # print(f"\n[PI-LOAD] after connect: connected={status.connected} "
     #       f"n_tags={status.n_tags} last_error={status.last_error!r}")
 
     assert status.connected
 
 
-def test_pi_source_reads_all_channels(pi_source, site):
-    async def _run():
-        async with pi_source:
-            tag_ids = [ch.id for ch in site.channels]
-            # print(f"\n[PI-READ] read_tags request: {tag_ids}")
+async def test_pi_source_reads_all_channels(pi_source, site):
+    async with pi_source:
+        tag_ids = [ch.id for ch in site.channels]
+        # print(f"\n[PI-READ] read_tags request: {tag_ids}")
 
-            readings = await pi_source.read_tags(tag_ids)
-            # for r in readings:
-            #     print(f"[PI-READ]   {r.tag_id!r}: {r.value:.4f} "
-            #           f"[{r.quality}] is_good={r.is_good}")
+        readings = await pi_source.read_tags(tag_ids)
+        # for r in readings:
+        #     print(f"[PI-READ]   {r.tag_id!r}: {r.value:.4f} "
+        #           f"[{r.quality}] is_good={r.is_good}")
 
-            return readings
-
-    readings = asyncio.run(_run())
     # print(f"\n[ASSERT] readings={len(readings)} expected={len(site.channels)} "
     #       f"good={sum(1 for r in readings if r.is_good)}")
 
@@ -129,20 +120,15 @@ def test_pi_source_reads_all_channels(pi_source, site):
     assert all(r.is_good for r in readings)
 
 
-def test_pi_source_read_tag_returns_float(pi_source, site):
-    async def _run():
-        async with pi_source:
-            ch = site.channels[0]
-            # print(f"\n[PI-READ] reading single tag: {ch.id!r} type={ch.type!r}")
+async def test_pi_source_read_tag_returns_float(pi_source, site):
+    async with pi_source:
+        ch = site.channels[0]
+        # print(f"\n[PI-READ] reading single tag: {ch.id!r} type={ch.type!r}")
 
-            reading = await pi_source.read_tag(ch.id)
-            # print(f"[PI-READ] result: value={reading.value:.4f} "
-            #       f"quality={reading.quality!r} "
-            #       f"ts={reading.timestamp.isoformat()}")
-
-            return reading
-
-    reading = asyncio.run(_run())
+        reading = await pi_source.read_tag(ch.id)
+        # print(f"[PI-READ] result: value={reading.value:.4f} "
+        #       f"quality={reading.quality!r} "
+        #       f"ts={reading.timestamp.isoformat()}")
 
     # print(f"\n[ASSERT] value={reading.value} "
     #       f"is_float={isinstance(reading.value, float)} "
@@ -152,48 +138,38 @@ def test_pi_source_read_tag_returns_float(pi_source, site):
     assert reading.is_good
 
 
-def test_pi_source_read_range_returns_multiple(pi_source, site):
-    async def _run():
-        async with pi_source:
-            end = datetime.now(timezone.utc)
-            start = end - timedelta(minutes=30)
-            ch = site.channels[0]
-            # print(f"\n[PI-RANGE] read_range: channel={ch.id!r} "
-            #       f"start={start.isoformat()} end={end.isoformat()}")
+async def test_pi_source_read_range_returns_multiple(pi_source, site):
+    async with pi_source:
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(minutes=30)
+        ch = site.channels[0]
+        # print(f"\n[PI-RANGE] read_range: channel={ch.id!r} "
+        #       f"start={start.isoformat()} end={end.isoformat()}")
 
-            readings = await pi_source.read_range(ch.id, start, end)
+        readings = await pi_source.read_range(ch.id, start, end)
 
-            # if readings:
-            #     print(f"[PI-RANGE] returned {len(readings)} readings")
-            #     print(f"[PI-RANGE]   first: {readings[0].timestamp.isoformat()} "
-            #           f"value={readings[0].value:.4f}")
-            #     print(f"[PI-RANGE]   last:  {readings[-1].timestamp.isoformat()} "
-            #           f"value={readings[-1].value:.4f}")
-            # else:
-            #     print(f"[PI-RANGE] WARNING: 0 readings returned — "
-            #           f"check that export covers this time window")
-
-            return readings
-
-    readings = asyncio.run(_run())
+        # if readings:
+        #     print(f"[PI-RANGE] returned {len(readings)} readings")
+        #     print(f"[PI-RANGE]   first: {readings[0].timestamp.isoformat()} "
+        #           f"value={readings[0].value:.4f}")
+        #     print(f"[PI-RANGE]   last:  {readings[-1].timestamp.isoformat()} "
+        #           f"value={readings[-1].value:.4f}")
+        # else:
+        #     print(f"[PI-RANGE] WARNING: 0 readings returned — "
+        #           f"check that export covers this time window")
 
     # print(f"\n[ASSERT] read_range count={len(readings)} (expected > 0)")
 
     assert len(readings) > 0
 
 
-def test_pi_source_missing_channel_returns_bad(pi_source):
-    async def _run():
-        async with pi_source:
-            # print(f"\n[PI-READ] requesting non-existent tag: 'NONEXISTENT-TAG'")
+async def test_pi_source_missing_channel_returns_bad(pi_source):
+    async with pi_source:
+        # print(f"\n[PI-READ] requesting non-existent tag: 'NONEXISTENT-TAG'")
 
-            reading = await pi_source.read_tag("NONEXISTENT-TAG")
-            # print(f"[PI-READ] result: is_good={reading.is_good} "
-            #       f"quality={reading.quality!r} value={reading.value}")
-
-            return reading
-
-    reading = asyncio.run(_run())
+        reading = await pi_source.read_tag("NONEXISTENT-TAG")
+        # print(f"[PI-READ] result: is_good={reading.is_good} "
+        #       f"quality={reading.quality!r} value={reading.value}")
 
     # [ASSERT] Uncomment to inspect before assert.
     # print(f"\n[ASSERT] is_good={reading.is_good} (expected False)")
@@ -201,9 +177,9 @@ def test_pi_source_missing_channel_returns_bad(pi_source):
     assert not reading.is_good
 
 
-def test_pi_source_status_type(pi_source):
-    asyncio.run(pi_source.connect())
-    status = pi_source.status()
+async def test_pi_source_status_type(pi_source):
+    async with pi_source:
+        status = pi_source.status()
 
     # print(f"\n[STATUS] SourceStatus: type={status.source_type!r} "
     #       f"connected={status.connected} endpoint={status.endpoint!r} "
@@ -222,3 +198,8 @@ def test_pi_source_implements_datasource(pi_source):
     #print(f"[ASSERT] isinstance check: {isinstance(pi_source, DataSource)}")
 
     assert isinstance(pi_source, DataSource)
+
+async def test_pi_source_connects(pi_source):        # ✅ FIXED: async def, no asyncio.run()
+    async with pi_source:
+        status = pi_source.status()
+    assert status.connected

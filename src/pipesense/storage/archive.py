@@ -98,6 +98,7 @@ class ArchiveWriter:
             "VALUES (?, ?, ?, ?, ?, ?)",
             (self.run_id, self.site_id, reading.tag_id, ts, float(reading.value), quality_code),
         )
+        self._conn.commit()
 
     def write_batch(self, readings: List[TagReading]) -> None:
         for r in readings:

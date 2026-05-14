@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime, timezone
+from contextlib import closing
 
 import pytest
 
@@ -21,7 +22,7 @@ SITE_ID     = "LACT-001"
 
 
 def _rows(db, sql, params=()):
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         return conn.execute(sql, params).fetchall()
 
 
@@ -60,12 +61,12 @@ def _run_cycles(site, db, n=N_CYCLES) -> list[AlarmEvent]:
 
     # Print statement to report how many alarm events fired and total readings written
     # zero alarms is valid during warm-up but worth confirming before asserting on the alarms table
+    
     # r_count = _rows(db, "SELECT COUNT(*) FROM readings")[0][0]
     # print(f"[run_cycles] {n} cycles — readings={r_count}  alarms={len(events)}")
+    
     return events
 
-
-# ── readings table ────────────────────────────────────────────────────────────
 
 def test_all_channels_have_rows(pipeline):
     site, db = pipeline
@@ -113,7 +114,7 @@ def test_site_id_on_every_reading(pipeline):
 
 def test_alarm_rows_have_correct_columns(pipeline):
     site, db = pipeline
-    events = _run_cycles(site, db, n=60)
+    events = _run_cycles(site, db, n=600)
     if not events:
         pytest.skip("No alarms fired — increase N_CYCLES or lower thresholds")
     rows = _rows(db,
@@ -128,7 +129,7 @@ def test_detector_column_not_detector_type(pipeline):
     """Regression: column must be 'detector', never 'detector_type'."""
     site, db = pipeline
     _run_cycles(site, db)
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         cols = [c[1] for c in conn.execute("PRAGMA table_info(alarms)").fetchall()]
     assert "detector"      in cols
     assert "detector_type" not in cols
@@ -137,7 +138,8 @@ def test_detector_column_not_detector_type(pipeline):
 def test_alarm_count_matches_log(pipeline):
     site, db = pipeline
     events = _run_cycles(site, db, n=60)
-    log_records = AlarmLog(db, run_id=RUN_ID, site_id=SITE_ID).read_all()
+    with AlarmLog(db, run_id=RUN_ID, site_id=SITE_ID) as log:
+        log_records = log.read_all()
     assert len(events) == len(log_records)
 
 
@@ -147,11 +149,13 @@ def test_both_tables_in_same_db(pipeline):
     
     # Print statement to show row counts in both tables after the run
     # confirms readings and alarms are in the same file and both tables received data
+    
     # r = _rows(db, "SELECT COUNT(*) FROM readings")[0][0]
     # a = _rows(db, "SELECT COUNT(*) FROM alarms")[0][0]
+    
     # print(f"[test] readings={r}  alarms={a}  db={db}")
     
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn:
         tables = {r[0] for r in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()}

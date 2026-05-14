@@ -15,6 +15,7 @@ pipesense = "pipesense.cli:main"
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
+    "pytest-asyncio>=0.23",
     "ruff>=0.4",
     "hypothesis>=6.0",
     "pyyaml>=6.0",
@@ -39,6 +40,7 @@ ignore = ["E501"]                               # Line length violations are ign
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-s -v"                               # Adding this for some additional logging during testing
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["pipesense"]

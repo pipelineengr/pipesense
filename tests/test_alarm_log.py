@@ -1,12 +1,9 @@
-import asyncio, pytest, math
+import pytest
 import sqlite3
 
-from datetime import datetime, timezone, timedelta
+from contextlib import closing
+from datetime import datetime, timezone
 from pipesense.config.loader import load_config
-from pipesense.sources.base import DataSource, TagReading
-from pipesense.sources.pi_generator import generate_pi_export
-from pipesense.sources.pi_source import PIHistorianSource
-from pipesense.sources.simulate import CHANNEL_SIMULATORS
 from pipesense.detection.base import AlarmEvent, AlarmSeverity
 from pipesense.storage.alarm_log import AlarmLog
 
@@ -23,40 +20,6 @@ def site():
 
     return site
 
-
-@pytest.fixture
-def pi_export_dir(tmp_path, site):
-    generate_pi_export(site, tmp_path / "pi", duration_hours=1.0, interval_s=5)
-    return tmp_path / "pi"
-
-
-@pytest.fixture
-def pi_export_dir(tmp_path, site):
-    output = tmp_path / "pi"
-    # print(f"\n[FIXTURE] generating PI exports → {output}")
-
-    paths = generate_pi_export(site, output, duration_hours=1.0, interval_s=5)
-    # for ch_id, path in paths.items():
-    #     print(f"[FIXTURE]   {ch_id!r} → {path.name} exists={path.exists()}")
-
-    return output
-
-
-@pytest.fixture
-def pi_source(site, pi_export_dir):
-    # print(f"\n[FIXTURE] PIHistorianSource created: "
-    #       f"site={site.id!r} dir={pi_export_dir}")
-
-    return PIHistorianSource(site, pi_export_dir)
-
-    
-@pytest.mark.parametrize("ch_type,lo,hi", [
-    ("flow",        200.0, 380.0),
-    ("pressure",    590.0, 660.0),
-    ("temperature",  14.0,  24.0),
-    ("level",         0.5,   9.8),
-    ("vibration",     0.0,   6.0),
-])
 
 def _event(
     tag: str = "FT-101",
@@ -166,7 +129,7 @@ def test_write_without_open_raises(tmp_log):
 def test_context_manager_closes_connection(tmp_log):
     with tmp_log as log:
         log.append(_event())
-    assert tmp_log._conn is None
+    assert tmp_log._connection is None
 
 
 def test_read_all_missing_db_returns_empty(tmp_path):
