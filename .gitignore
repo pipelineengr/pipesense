@@ -11,3 +11,4 @@ data/
 *.h5
 *.jsonl
 .vscode/
+.python-version

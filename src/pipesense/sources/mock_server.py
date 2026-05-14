@@ -56,7 +56,11 @@ class MockOpcUaServer:
         for ch in self._site.channels:
             sim_fn = CHANNEL_SIMULATORS.get(ch.type)
             initial = sim_fn() if sim_fn else 0.0
-            var = await site_node.add_variable(idx, ch.id, initial)
+            # var = await site_node.add_variable(idx, ch.opc_node, initial)
+            node_id = ua.NodeId(ch.opc_node.split(";s=")[1], idx)   # e.g. "LACT001.FT101.PV" in ns=2
+            var = await site_node.add_variable(node_id, ch.opc_node, initial)
+            await var.set_writable()
+            self._nodes[ch.opc_node] = var
             await var.set_writable()
             self._nodes[ch.opc_node] = var
 

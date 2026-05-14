@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+import asyncio
 import signal
 import time as _time
 
@@ -53,7 +54,7 @@ def parse_args(argv=None):
         help="Path to site config YAML (overrides root --config)"
     )
 
-    p_run = sub.add_parser("run", help="Start a run (not yet implemented)")
+    p_run = sub.add_parser("run", help="Start a run")
     p_run.add_argument(
         "--config", dest="config_override", default=None,
         help="Path to site config YAML (overrides root --config)"
@@ -62,7 +63,24 @@ def parse_args(argv=None):
         "--duration", type=int, default=None, metavar="SECONDS",
         help="Stop after this many seconds (default: run until stopped manually)"
     )
-
+    p_run.add_argument(
+            "--source",
+            choices=["sim", "opcua", "pi"],
+            default="sim",
+            help=(
+                "Data source: "
+                "sim = built-in simulator (default), "
+                "opcua = virtual OPC-UA server on with the endpoint listed in config, "
+                "pi = generated PI historian CSV exports"
+            ),
+        )
+    p_run.add_argument(
+        "--pi-dir",
+        default=None,
+        metavar="DIR",
+        help="Directory for PI CSV exports (--source pi only). "
+            "Defaults to the export_path in site config.",
+    )
     return parser.parse_args(argv)
 
 
@@ -86,6 +104,116 @@ def _load(config_path: str):
         print(f"Configuration error: {exc}", file=sys.stderr)
         sys.exit(1)
 
+async def _make_sim_source(site, _args):
+    """Wrap CHANNEL_SIMULATORS in a thin async-compatible DataSource."""
+    from pipesense.sources.simulator_source import SimulatorSource
+    source = SimulatorSource(site)
+    await source.connect()
+    return source, None          
+
+
+async def _make_opcua_source(site, _args):
+    """Start MockOpcUaServer then connect OpcUaSource to it."""
+    from pipesense.sources.mock_server import MockOpcUaServer, MockServerConfig
+    from pipesense.sources.opcua_source import OpcUaSource
+
+    cfg    = MockServerConfig(endpoint=site.opc_ua_endpoint)
+    server = MockOpcUaServer(site, cfg)
+    await server.start()
+    await asyncio.sleep(2)
+    print(f"OPC-UA server started at {site.opc_ua_endpoint}")
+
+    source = OpcUaSource(endpoint=site.opc_ua_endpoint)
+    await source.connect()
+
+    #for ch in site.channels:
+    #    test = await source.read_tag(ch.opc_node)
+    #    print(f"  CONNECT TEST: {ch.opc_node!r} → value={test.value} quality={test.quality!r}")
+
+    print("OPC-UA client connected")
+    return source, server       
+
+
+async def _make_pi_source(site, args):
+    """Generate PI CSVs if missing, then load PIHistorianSource."""
+    from pathlib import Path
+    from pipesense.sources.pi_generator import generate_pi_export
+    from pipesense.sources.pi_source import PIHistorianSource
+
+    export_dir = Path(args.pi_dir or site.pi_historian.export_path)
+    if not any(export_dir.glob("*.csv")):
+        print(f"Generating PI exports → {export_dir}")
+        generate_pi_export(site, export_dir, duration_hours=24.0, interval_s=5)
+
+    source = PIHistorianSource(site, export_dir)
+    await source.connect()
+    print(f"PI historian loaded {source.status().n_tags} tag(s) from {export_dir}")
+    return source, None
+
+
+_SOURCE = {
+    "sim":   _make_sim_source,
+    "opcua": _make_opcua_source,
+    "pi":    _make_pi_source,
+}
+
+async def _run_async(args, config_path: str) -> None:
+    config  = _load(config_path)
+    site    = config.sites[0]
+    storage = config.storage
+    run_id  = f"run_{int(_time.time())}"
+
+    print(f"Source     : {args.source}")
+    print(f"DB         : {storage.db_path}")
+    print(f"Run ID     : {run_id}")
+
+    source, server = await _SOURCE[args.source](site, args)
+
+    engine  = DetectionEngine(site)
+    running = True
+    start   = _time.monotonic()
+
+    def _stop(sig, frame):
+        nonlocal running
+        running = False
+
+    signal.signal(signal.SIGINT,  _stop)
+    signal.signal(signal.SIGTERM, _stop)
+
+    print("Starting run — press Ctrl+C to stop\n")
+
+    try:
+        with ArchiveWriter(storage.db_path, run_id=run_id, site_id=storage.site_id) as archive, \
+             AlarmLog(storage.db_path,      run_id=run_id, site_id=storage.site_id) as alarm_log:
+
+            while running:
+                if args.duration is not None and (_time.monotonic() - start) >= args.duration:
+                    break
+
+                tag_ids  = [ch.opc_node for ch in site.channels]
+                readings = await source.read_tags(tag_ids)
+
+                #for r in readings:
+                #    print(f"  tag={r.tag_id!r} value={r.value} quality={r.quality!r}")
+
+                for reading in readings:
+                    if not reading.is_good or reading.value != reading.value:  # Got a NaN check, added Nan != Nan which is always true
+                        # print(f"  SKIPPED: {reading.tag_id!r} value={reading.value} quality={reading.quality!r}")
+                        continue
+                    archive.write(reading)
+                    for event in engine.process(reading):
+                        alarm_log.append(event)
+                        print(f"  [{event.severity.value}] {event.tag_id}: {event.message}")
+
+                archive.flush()
+                await asyncio.sleep(1.0)
+
+    finally:
+        await source.disconnect()
+        if server is not None:
+            await server.stop()
+
+    print("Run complete.")
 
 def main():
     args = parse_args()
@@ -141,67 +269,7 @@ def main():
                 )
 
     elif args.command == "run":
-        config  = _load(config_path)
-        site    = config.sites[0]        # DetectionEngine takes SiteConfig
-        storage = config.storage
-        run_id  = f"run_{int(_time.time())}"
-
-        # Print statement to confirm db path, run_id, and site_id before any files are created — a wrong path here is far easier to spot than a downstream error
-        # print(f"[run] db={storage.db_path!r}  run_id={run_id!r}  site_id={storage.site_id!r}")
-
-        engine   = DetectionEngine(site)
-        duration = getattr(args, "duration", None)
-        running  = True
-        start    = _time.monotonic()
-
-        def _stop(sig, frame):
-            nonlocal running
-            running = False
-            # Print statement to confirm which OS signal triggered the shutdown — useful when debugging unexpected exits under Docker or systemd
-            # print(f"[run] shutdown signal received  sig={sig}")
-
-        signal.signal(signal.SIGINT,  _stop)
-        signal.signal(signal.SIGTERM, _stop)
-
-        print(f"Starting run — db: {storage.db_path}  run_id: {run_id}")
-
-        with ArchiveWriter(storage.db_path, run_id=run_id, site_id=storage.site_id) as archive, \
-            AlarmLog(storage.db_path,      run_id=run_id, site_id=storage.site_id) as alarm_log:
-
-            while running:
-                if duration is not None and (_time.monotonic() - start) >= duration:
-                    break
-
-                now = datetime.now(timezone.utc)
-
-                for ch in site.channels:
-                    sim_fn = CHANNEL_SIMULATORS.get(ch.type)
-                    if sim_fn is None:
-                        continue
-
-                    reading = TagReading(
-                        tag_id=ch.id,
-                        value=sim_fn(),
-                        timestamp=now,
-                        quality="Good",
-                        unit=ch.unit,
-                    )
-
-                    # Print statement to show every raw reading entering the pipeline — enable briefly to verify all 5 channels are polling, disable during normal runs
-                    # print(f"[run] polled  tag={reading.tag_id!r}  value={reading.value:.4f}")
-
-                    archive.write(reading)
-
-                    for event in engine.process(reading):
-                        alarm_log.append(event)
-                        # Print statement to show each alarm event emitted by the detection engine — severity, tag, and message in one line for quick triage
-                        # print(f"[run] alarm  [{event.severity.value}] {event.tag_id}: {event.message}")
-                        print(f"  [{event.severity.value}] {event.tag_id}: {event.message}")
-
-                archive.flush()
-                _time.sleep(1.0)
-
-        print("Run complete.")
+        asyncio.run(_run_async(args, config_path))
 
 
 if __name__ == "__main__":

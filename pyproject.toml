@@ -1,9 +1,9 @@
 [project]
 name = "pipesense"
-version = "0.1.0"
+version = "0.2.0"
 description = "Tool for pipeline production real-time data acquisition, analysis, historical simulation and leak detection."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = "3.12"
 license = { text = "MIT" }
 keywords = ["opc-ua", "scada", "anomaly-detection", "time-series", "industrial"]
 dependencies = ["pyyaml>=6.0"]
