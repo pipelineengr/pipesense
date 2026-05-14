@@ -10,3 +10,4 @@ htmlcov/
 data/
 *.h5
 *.jsonl
+.vscode/
