@@ -183,6 +183,8 @@ async def _run_async(args, config_path: str) -> None:
         with ArchiveWriter(storage.db_path, run_id=run_id, site_id=storage.site_id) as archive, \
              AlarmLog(storage.db_path,      run_id=run_id, site_id=storage.site_id) as alarm_log:
 
+            _opc_to_id = {ch.opc_node: ch.id for ch in site.channels}
+            
             while running:
                 if args.duration is not None and (_time.monotonic() - start) >= args.duration:
                     break
@@ -192,8 +194,7 @@ async def _run_async(args, config_path: str) -> None:
 
                 #for r in readings:
                 #    print(f"  tag={r.tag_id!r} value={r.value} quality={r.quality!r}")
-                _opc_to_id = {ch.opc_node: ch.id for ch in site.channels}
-                
+                                
                 for reading in readings:
                     if not reading.is_good or reading.value != reading.value:  # Got a NaN check, added Nan != Nan which is always true
                         # print(f"  SKIPPED: {reading.tag_id!r} value={reading.value} quality={reading.quality!r}")

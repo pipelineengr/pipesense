@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = "3.12"
 license = { text = "MIT" }
 keywords = ["opc-ua", "scada", "anomaly-detection", "time-series", "industrial"]
-dependencies = ["pyyaml>=6.0"]
+dependencies = ["pyyaml>=6.0", "pandas>=2.0",]
 
 [project.scripts]
 pipesense = "pipesense.cli:main"
@@ -21,7 +21,6 @@ dev = [
     "pyyaml>=6.0",
     "asyncua>=1.0",
     "numpy>=1.26",
-    "pandas>=2.0",
     "h5py>=3.10",
 ]
 
