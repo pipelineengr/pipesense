@@ -12,3 +12,4 @@ data/
 *.jsonl
 .vscode/
 .python-version
+reports/

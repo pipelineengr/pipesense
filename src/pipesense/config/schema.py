@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Literal
 
+from pipesense import reporting
+
 ChannelType = Literal[
     "flow", "pressure", "temperature", "level", "vibration"
 ]  # Five parameters to monitor and control
@@ -78,9 +80,12 @@ class StorageConfig:
     site_id: str = "unknown"
 
 @dataclass
+class ReportConfig:
+    report_path: str = "reports/run_report.md"  # Output path for the generated final markdown file    
+
+@dataclass
 class SiteConfig:
     """Complete configuration for a single monitored site."""
-
     id: str
     name: str
     description: str
@@ -106,6 +111,7 @@ class PipesenseConfig:
     version: str
     sites: list[SiteConfig]
     storage: StorageConfig = field(default_factory=StorageConfig)
+    reporting: ReportConfig = field(default_factory=ReportConfig)
 
     def get_site(self, site_id: str) -> SiteConfig | None:
         return next((s for s in self.sites if s.id == site_id), None)

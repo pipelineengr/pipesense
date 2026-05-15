@@ -11,6 +11,10 @@ from pipesense.sources.base import TagReading
 from pipesense.detection.engine import DetectionEngine
 from pipesense.storage.archive import ArchiveWriter
 from pipesense.storage.alarm_log import AlarmLog
+from pipesense.reporting.reader import ArchiveReader
+from pipesense.reporting.builder import ReportBuilder
+from pipesense.reporting.writer import ReportWriter
+from pipesense.storage.alarm_log import AlarmLog
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
@@ -77,6 +81,16 @@ def parse_args(argv=None):
         metavar="DIR",
         help="Directory for PI CSV exports (--source pi only). "
             "Defaults to the export_path in site config.",
+    )
+
+    p_report = sub.add_parser("report", help="Generate a report")
+    p_report.add_argument(
+        "--run_id", dest="run_id", default=None,
+        help="Run ID to run the report for (default is generate for the most recent run)"
+    )
+    p_report.add_argument(
+        "--config", dest="config_override", default=None,
+        help="Path to site config YAML (overrides root --config)"
     )
     return parser.parse_args(argv)
 
@@ -184,7 +198,7 @@ async def _run_async(args, config_path: str) -> None:
              AlarmLog(storage.db_path,      run_id=run_id, site_id=storage.site_id) as alarm_log:
 
             _opc_to_id = {ch.opc_node: ch.id for ch in site.channels}
-            
+
             while running:
                 if args.duration is not None and (_time.monotonic() - start) >= args.duration:
                     break
@@ -221,60 +235,107 @@ async def _run_async(args, config_path: str) -> None:
 
     print("Run complete.")
 
+def _validate(args, config_path: str) -> None:
+    path   = args.config_override or config_path
+    config = _load(path)
+    n_sites    = len(config.sites)
+    n_channels = sum(len(s.channels) for s in config.sites)
+    print(f"Config valid: {path}")
+    print(f"  {n_sites} site(s), {n_channels} channel(s) total")
+    for site in config.sites:
+        print(f"  [{site.id}] {site.name} — {len(site.channels)} channels")
+
+def _status(args, config_path: str) -> None:
+    config = _load(config_path)
+    for site in config.sites:
+        print(f"\n[{site.id}] {site.name}")
+        print(f"  OPC-UA endpoint : {site.opc_ua_endpoint}")
+        pi = site.pi_historian
+        print(f"  PI historian    : {'enabled' if pi.enabled else 'disabled'}")
+        if pi.enabled:
+            print(f"  PI export path  : {pi.export_path}")
+            print(f"  PI tag prefix   : {pi.tag_prefix}")
+        print(f"  Channels ({len(site.channels)}):")
+        for ch in site.channels:
+            print(f"    {ch.id:10s} {ch.type:12s} "
+                  f"[{ch.unit}] poll={ch.poll_interval_s}s")
+
+
+def _info(args, config_path: str) -> None:
+    config = _load(config_path)
+    sites  = config.sites
+    if args.site:
+        site = config.get_site(args.site)
+        if not site:
+            print(f"Site {args.site!r} not found.", file=sys.stderr)
+            sys.exit(1)
+        sites = [site]
+    for site in sites:
+        print(f"\n{'=' * 52}")
+        print(f"Site:       {site.id} — {site.name}")
+        print(f"Location:   {site.location}")
+        print(f"Endpoint:   {site.opc_ua_endpoint}")
+        print(f"PI enabled: {site.pi_historian.enabled}")
+        print(f"\nChannels ({len(site.channels)}):")
+        for ch in site.channels:
+            print(
+                f"  {ch.id:10s} {ch.type:12s} "
+                f"{ch.name:30s} [{ch.unit}] "
+                f"poll={ch.poll_interval_s}s"
+            )
+
+
+def _report(args, config_path: str) -> None:
+    config     = _load(config_path)
+    storage    = config.storage
+    report_cfg = config.reporting
+
+    # [REPORT] Confirm db path and output path before any file IO
+    # print(f"[report] db={storage.db_path!r}  output={report_cfg.report_path!r}")
+
+    reader         = ArchiveReader(storage.db_path, run_id="", site_id=storage.site_id)
+    available_runs = reader.list_runs()
+
+    if not available_runs:
+        print(f"No runs found in database {storage.db_path}", file=sys.stderr)
+        sys.exit(1)
+
+    run_id = args.run_id if args.run_id in (available_runs or []) else available_runs[-1]
+
+    # [REPORT] Show all available run_ids and which one was selected
+    # print(f"[report] available_runs={available_runs}  selected={run_id!r}")
+
+    reader      = ArchiveReader(storage.db_path, run_id=run_id, site_id=storage.site_id)
+    channel_dfs = reader.load_by_channel()
+    alarms      = AlarmLog(storage.db_path, run_id=run_id, site_id=storage.site_id).read_all()
+
+    report = ReportBuilder(
+        channel_dfs=channel_dfs,
+        alarm_records=alarms,
+        run_id=run_id,
+        site_id=storage.site_id,
+    ).build()
+
+    # [REPORT] Confirm the output path just before writing
+    # print(f"[report] writing to {report_cfg.report_path!r}")
+
+    ReportWriter(report_cfg.report_path).write(report)
+    print(f"Report written to {report_cfg.report_path}")
+
 def main():
     args = parse_args()
     config_override = getattr(args, "config_override", None)  
     config_path = config_override or args.config
 
-    if args.command == "validate":
-        path = args.config_override or config_path
-        config = _load(path)
-        n_sites = len(config.sites)
-        n_channels = sum(len(s.channels) for s in config.sites)
-        print(f"Config valid: {path}")
-        print(f"  {n_sites} site(s), {n_channels} channel(s) total")
-        for site in config.sites:
-            print(f"  [{site.id}] {site.name} — {len(site.channels)} channels")
-
-    elif args.command == "status":
-        config = _load(config_path)
-        for site in config.sites:
-            print(f"\n[{site.id}] {site.name}")
-            print(f"  OPC-UA endpoint : {site.opc_ua_endpoint}")
-            pi = site.pi_historian
-            print(f"  PI historian    : {'enabled' if pi.enabled else 'disabled'}")
-            if pi.enabled:
-                print(f"  PI export path  : {pi.export_path}")
-                print(f"  PI tag prefix   : {pi.tag_prefix}")
-            print(f"  Channels ({len(site.channels)}):")
-            for ch in site.channels:
-                print(f"    {ch.id:10s} {ch.type:12s} "
-                      f"[{ch.unit}] poll={ch.poll_interval_s}s")
-
-    elif args.command == "info":
-        config = _load(config_path)
-        sites = config.sites
-        if args.site:
-            site = config.get_site(args.site)
-            if not site:
-                print(f"Site {args.site!r} not found.", file=sys.stderr)
-                sys.exit(1)
-            sites = [site]
-        for site in sites:
-            print(f"\n{'=' * 52}")
-            print(f"Site:       {site.id} — {site.name}")
-            print(f"Location:   {site.location}")
-            print(f"Endpoint:   {site.opc_ua_endpoint}")
-            print(f"PI enabled: {site.pi_historian.enabled}")
-            print(f"\nChannels ({len(site.channels)}):")
-            for ch in site.channels:
-                print(
-                    f"  {ch.id:10s} {ch.type:12s} "
-                    f"{ch.name:30s} [{ch.unit}] "
-                    f"poll={ch.poll_interval_s}s"
-                )
-
-    elif args.command == "run":
+    if args.command == "validate": 
+        _validate(args, config_path)
+    elif args.command == "status":   
+        _status(args, config_path)
+    elif args.command == "info":     
+        _info(args, config_path)
+    elif args.command == "report":   
+        _report(args, config_path)
+    elif args.command == "run":      
         asyncio.run(_run_async(args, config_path))
 
 

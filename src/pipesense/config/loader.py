@@ -8,6 +8,7 @@ from pipesense.config.schema import (
     ChannelConfig,
     DetectionConfig,
     DriftDetectionConfig,
+    ReportConfig,
     StorageConfig,
     PIHistorianConfig,
     PipesenseConfig,
@@ -120,12 +121,15 @@ def _parse_site(data: dict) -> SiteConfig:
     )
 
 def _parse_storage(data: dict) -> StorageConfig:
-    """Parse the storage: block, the values have defaults."""
     return StorageConfig(
         db_path=data.get("db_path", "data/PipesenseStorage.db"),
         site_id=data.get("site_id", "unknown"),
     )
 
+def _parse_report(data: dict) -> ReportConfig:
+    return ReportConfig(
+        report_path=data.get("report_path", "reports/run_report.md")
+    )
 
 def load_config(path: str | Path) -> PipesenseConfig:
     """Load and validate a pipesense YAML config file.
@@ -149,4 +153,5 @@ def load_config(path: str | Path) -> PipesenseConfig:
         version=str(raw.get("version", "1.0")),
         sites=[_parse_site(s) for s in raw["sites"]],
         storage=storage,
+        reporting=_parse_report(raw.get("reporting", {}))
     )
