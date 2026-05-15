@@ -4,6 +4,7 @@ import argparse
 import sys
 import asyncio
 import signal
+import logging
 import time as _time
 
 from pipesense import __version__
@@ -15,6 +16,8 @@ from pipesense.reporting.reader import ArchiveReader
 from pipesense.reporting.builder import ReportBuilder
 from pipesense.reporting.writer import ReportWriter
 from pipesense.storage.alarm_log import AlarmLog
+
+logging.getLogger("asyncua").setLevel(logging.ERROR)
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
