@@ -6,11 +6,8 @@ import asyncio
 import signal
 import time as _time
 
-from datetime import datetime, timezone
-
 from pipesense import __version__
 from pipesense.sources.base import TagReading
-from pipesense.sources.simulate import CHANNEL_SIMULATORS
 from pipesense.detection.engine import DetectionEngine
 from pipesense.storage.archive import ArchiveWriter
 from pipesense.storage.alarm_log import AlarmLog
@@ -195,11 +192,19 @@ async def _run_async(args, config_path: str) -> None:
 
                 #for r in readings:
                 #    print(f"  tag={r.tag_id!r} value={r.value} quality={r.quality!r}")
-
+                _opc_to_id = {ch.opc_node: ch.id for ch in site.channels}
+                
                 for reading in readings:
                     if not reading.is_good or reading.value != reading.value:  # Got a NaN check, added Nan != Nan which is always true
                         # print(f"  SKIPPED: {reading.tag_id!r} value={reading.value} quality={reading.quality!r}")
                         continue
+                    reading = TagReading(
+                        tag_id=_opc_to_id.get(reading.tag_id, reading.tag_id),
+                        value=reading.value,
+                        timestamp=reading.timestamp,
+                        quality=reading.quality,
+                        unit=reading.unit,
+                    )
                     archive.write(reading)
                     for event in engine.process(reading):
                         alarm_log.append(event)

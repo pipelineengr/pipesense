@@ -61,8 +61,6 @@ class MockOpcUaServer:
             var = await site_node.add_variable(node_id, ch.opc_node, initial)
             await var.set_writable()
             self._nodes[ch.opc_node] = var
-            await var.set_writable()
-            self._nodes[ch.opc_node] = var
 
             # [INIT] Statement to see each OPC-UA node as it is registered.
             # Shows the mapping: opc_node string → initial simulated value.
