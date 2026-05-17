@@ -12,7 +12,7 @@ class ReportWriter:
 
     Usage:
         writer = ReportWriter("reports/run_report.md")
-        writer.write(report)
+        writer.write([report])
     """
 
     def __init__(self, output_path: Path | str) -> None:

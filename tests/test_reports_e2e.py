@@ -168,7 +168,7 @@ class TestReportWriterIntegration:
         ).build()
 
         out = tmp_path / "reports" / "summary.md"
-        md  = ReportWriter(out).write(report)
+        md  = ReportWriter(out).write([report])
 
         # Print statement to eyeball the first 300 chars of the final Markdown output.
         # print(f"md preview:\n{md[:300]}")
@@ -189,7 +189,7 @@ class TestReportWriterIntegration:
             site_id=SITE_ID,
         ).build()
 
-        md = ReportWriter(tmp_path / "out.md").write(report)
+        md = ReportWriter(tmp_path / "out.md").write([report])
 
         for ch in cfg.sites[0].channels:
 
@@ -208,8 +208,8 @@ class TestReportWriterIntegration:
             run_id=RUN_ID,
             site_id=SITE_ID,
         ).build()
-        md = ReportWriter(tmp_path / "out.md").write(report)
+        md = ReportWriter(tmp_path / "out.md").write([report])
 
-        assert "# Pipesense Site Report" in md
-        assert "## Channel Statistics"   in md
-        assert "## Alarm Summary"        in md
+        assert f"# Site Report: {SITE_ID}" in md
+        assert "## Channel Statistics"     in md
+        assert "## Alarm Summary"          in md

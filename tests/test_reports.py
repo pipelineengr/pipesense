@@ -260,16 +260,16 @@ class TestReportWriter:
     def test_creates_file(self, report, tmp_path):
         """write() must create the output file on disk."""
         out = tmp_path / "reports" / "summary.md"
-        ReportWriter(out).write(report)
+        ReportWriter(out).write([report])
         assert out.exists()
 
     def test_returns_string(self, report, tmp_path):
         """write() must return the rendered Markdown string."""
-        md = ReportWriter(tmp_path / "out.md").write(report)
+        md = ReportWriter(tmp_path / "out.md").write([report])
         assert isinstance(md, str) and len(md) > 0
 
     def test_contains_site_and_run(self, report, tmp_path):
-        md = ReportWriter(tmp_path / "out.md").write(report)
+        md = ReportWriter(tmp_path / "out.md").write([report])
 
         # Print Statement to eyeball the first 200 chars of the rendered output.
         # print(f"[test] md preview:\n{md[:200]}")
@@ -279,13 +279,13 @@ class TestReportWriter:
 
     def test_contains_all_channel_tags(self, report, tmp_path):
         """Every channel tag_id must appear somewhere in the rendered Markdown."""
-        md = ReportWriter(tmp_path / "out.md").write(report)
+        md = ReportWriter(tmp_path / "out.md").write([report])
         for tag in TAGS:
             assert tag in md, f"Tag {tag!r} missing from rendered report"
 
     def test_alarm_severities_in_output(self, report, tmp_path):
         """HIGH and CRITICAL must appear in the Alarm Summary section."""
-        md = ReportWriter(tmp_path / "out.md").write(report)
+        md = ReportWriter(tmp_path / "out.md").write([report])
         assert "HIGH"     in md
         assert "CRITICAL" in md
 
@@ -300,7 +300,7 @@ class TestReportWriter:
             run_id=RUN_ID,
             site_id=SITE_ID,
         ).build()
-        md = ReportWriter(tmp_path / "out.md").write(no_alarm_report)
+        md = ReportWriter(tmp_path / "out.md").write([no_alarm_report])
 
         # Print Statement to confirm the no-alarms message appears.
         # print(f"[test] no-alarm md snippet:\n{md[-200:]}")
@@ -310,12 +310,12 @@ class TestReportWriter:
     def test_creates_parent_directories(self, report, tmp_path):
         """ReportWriter must create any missing parent directories automatically."""
         deep = tmp_path / "a" / "b" / "c" / "report.md"
-        ReportWriter(deep).write(report)
+        ReportWriter(deep).write([report])
         assert deep.exists()
 
     def test_markdown_headers_present(self, report, tmp_path):
         """The rendered output must contain the expected section headers."""
-        md = ReportWriter(tmp_path / "out.md").write(report)
-        assert "# Pipesense Site Report" in md
-        assert "## Channel Statistics"   in md
-        assert "## Alarm Summary"        in md
+        md = ReportWriter(tmp_path / "out.md").write([report])
+        assert f"# Site Report: {SITE_ID}" in md
+        assert "## Channel Statistics"     in md
+        assert "## Alarm Summary"          in md
