@@ -57,7 +57,11 @@ def _parse_channel(data: dict) -> ChannelConfig:
     missing = required - set(data.keys())
     if missing:
         raise ConfigError(f"Channel {data.get('id', '?')!r} missing keys: {missing}")
-    valid_types = {"flow", "pressure", "temperature", "level", "vibration"}
+    valid_types = {
+    "flow", "pressure", "temperature", "level", "vibration",   
+    "speed", "discharge_pressure", "suction_pressure",          
+    "bearing_temperature", "power_draw",                        
+}
     if data["type"] not in valid_types:
         raise ConfigError(
             f"Channel {data['id']!r} has invalid type {data['type']!r}. "  # Support for other units like Imperial/Metric or alternates?

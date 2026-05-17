@@ -84,6 +84,51 @@ def vibration_value(
 
     return result
 
+def speed_value() -> float:
+    """Compressor shaft speed in RPM — base 3000 RPM with small noise."""
+    # [SIM] Simulates a running compressor shaft. Values well below 2800 or above 3200 are anomalous.
+    # print(f"[simulate] speed={value:.2f} RPM")
+    base  = 3000.0
+    noise = random.gauss(0, 15.0)
+    value = base + noise
+    return round(value, 4)
+
+def discharge_pressure_value() -> float:
+    """Compressor discharge pressure in kPa — base 1200 kPa."""
+    # [SIM] Downstream pressure after compression. Spike here = blocked outlet or valve issue.
+    # print(f"[simulate] discharge_pressure={value:.2f} kPa")
+    base  = 1200.0
+    noise = random.gauss(0, 20.0)
+    value = base + noise
+    return round(value, 4)
+
+def suction_pressure_value() -> float:
+    """Compressor suction (inlet) pressure in kPa — base 350 kPa."""
+    # [SIM] Upstream pressure before compression. Low suction = starved inlet.
+    # print(f"[simulate] suction_pressure={value:.2f} kPa")
+    base  = 350.0
+    noise = random.gauss(0, 10.0)
+    value = base + noise
+    return round(value, 4)
+
+def bearing_temperature_value() -> float:
+    """Bearing temperature in degC — base 65 degC."""
+    # [SIM] Bearing temps climb slowly on degradation — drift detector is key here.
+    # print(f"[simulate] bearing_temperature={value:.2f} degC")
+    base  = 65.0
+    noise = random.gauss(0, 1.5)
+    value = base + noise
+    return round(value, 4)
+
+def power_draw_value() -> float:
+    """Motor power draw in kW — base 450 kW."""
+    # [SIM] Power draw correlates with load. Sudden spike = mechanical resistance or fault.
+    # print(f"[simulate] power_draw={value:.2f} kW")
+    base  = 450.0
+    noise = random.gauss(0, 8.0)
+    value = base + noise
+    return round(value, 4)
+
 
 CHANNEL_SIMULATORS = {
     "flow":        flow_value,
@@ -91,6 +136,11 @@ CHANNEL_SIMULATORS = {
     "temperature": temperature_value,
     "level":       level_value,
     "vibration":   vibration_value,
+    "speed":               speed_value,
+    "discharge_pressure":  discharge_pressure_value,
+    "suction_pressure":    suction_pressure_value,
+    "bearing_temperature": bearing_temperature_value,
+    "power_draw":          power_draw_value,
 }
 
 # [SIM] Uncomment to see the simulator registry at import time.

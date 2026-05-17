@@ -88,9 +88,173 @@ sites:
         cusum_slack: 0.5            #slack for the sum of the differences between the current and previous samples
         window_s: 300             #window size in seconds for the sum of the differences between the current and previous samples 
 
+  - id: "COMP-001"
+    name: "Compressor Station"
+    description: "Gas compressor station — inlet/outlet and mechanical monitoring"
+    location: "Alberta, Canada"
+    opc_ua_endpoint: "opc.tcp://localhost:4841"   # different port from LACT-001
+
+    pi_historian:
+      enabled: true
+      export_path: "./data/pi_exports/COMP-001"
+      tag_prefix: "COMP_001"
+
+    channels:
+      - id: "ST-101"
+        name: "Compressor Shaft Speed"
+        opc_node: "ns=2;s=COMP001.ST101.PV"
+        pi_tag: "COMP_001.ST101.PV"
+        unit: "RPM"
+        type: "speed"
+        poll_interval_s: 2
+        thresholds:
+          low_low: 2500.0
+          low: 2800.0
+          high: 3200.0
+          high_high: 3500.0
+
+      - id: "PD-201"
+        name: "Discharge Pressure"
+        opc_node: "ns=2;s=COMP001.PD201.PV"
+        pi_tag: "COMP_001.PD201.PV"
+        unit: "kPa"
+        type: "discharge_pressure"
+        poll_interval_s: 5
+        thresholds:
+          low_low: 900.0
+          low: 1000.0
+          high: 1400.0
+          high_high: 1600.0
+
+      - id: "PS-301"
+        name: "Suction Pressure"
+        opc_node: "ns=2;s=COMP001.PS301.PV"
+        pi_tag: "COMP_001.PS301.PV"
+        unit: "kPa"
+        type: "suction_pressure"
+        poll_interval_s: 5
+        thresholds:
+          low_low: 200.0
+          low: 280.0
+          high: 420.0
+          high_high: 500.0
+
+      - id: "BT-401"
+        name: "Bearing Temperature"
+        opc_node: "ns=2;s=COMP001.BT401.PV"
+        pi_tag: "COMP_001.BT401.PV"
+        unit: "degC"
+        type: "bearing_temperature"
+        poll_interval_s: 10
+        thresholds:
+          low_low: 20.0
+          low: 40.0
+          high: 80.0
+          high_high: 95.0
+
+      - id: "PW-501"
+        name: "Motor Power Draw"
+        opc_node: "ns=2;s=COMP001.PW501.PV"
+        pi_tag: "COMP_001.PW501.PV"
+        unit: "kW"
+        type: "power_draw"
+        poll_interval_s: 5
+        thresholds:
+          low_low: 200.0
+          low: 300.0
+          high: 550.0
+          high_high: 620.0
+
+    detection:
+      spike:
+        enabled: true
+        z_threshold: 3.5
+        crit_sigma: 5.0
+        min_samples: 10
+      drift:
+        enabled: true
+        cusum_threshold: 5.0
+        cusum_slack: 0.5
+        window_s: 300
+
+  - id: "LACT-003"
+    name: "Pipeline Junction Station"
+    description: "Mixed measurement point — flow and pressure from LACT-001 type, speed and bearing from COMP-001 type"
+    location: "Alberta, Canada"
+    opc_ua_endpoint: "opc.tcp://localhost:4842"
+
+    pi_historian:
+      enabled: true
+      export_path: "./data/pi_exports/LACT-003"
+      tag_prefix: "JUNCT_001"
+
+    channels:
+      - id: "FT-101"
+        name: "Junction Flow Rate"
+        opc_node: "ns=2;s=JUNCT001.FT101.PV"
+        pi_tag: "JUNCT_001.FT101.PV"
+        unit: "m3/h"
+        type: "flow"
+        poll_interval_s: 5
+        thresholds:
+          low_low: 0.0
+          low: 30.0
+          high: 300.0
+          high_high: 380.0
+
+      - id: "PT-201"
+        name: "Junction Pressure"
+        opc_node: "ns=2;s=JUNCT001.PT201.PV"
+        pi_tag: "JUNCT_001.PT201.PV"
+        unit: "kPa"
+        type: "pressure"
+        poll_interval_s: 5
+        thresholds:
+          low_low: 150.0
+          low: 300.0
+          high: 700.0
+          high_high: 850.0
+
+      - id: "ST-301"
+        name: "Booster Shaft Speed"
+        opc_node: "ns=2;s=JUNCT001.ST301.PV"
+        pi_tag: "JUNCT_001.ST301.PV"
+        unit: "RPM"
+        type: "speed"
+        poll_interval_s: 2
+        thresholds:
+          low_low: 2400.0
+          low: 2700.0
+          high: 3100.0
+          high_high: 3400.0
+
+      - id: "BT-401"
+        name: "Booster Bearing Temperature"
+        opc_node: "ns=2;s=JUNCT001.BT401.PV"
+        pi_tag: "JUNCT_001.BT401.PV"
+        unit: "degC"
+        type: "bearing_temperature"
+        poll_interval_s: 10
+        thresholds:
+          low_low: 15.0
+          low: 35.0
+          high: 75.0
+          high_high: 90.0
+
+    detection:
+      spike:
+        enabled: true
+        z_threshold: 3.5
+        crit_sigma: 5.0
+        min_samples: 10
+      drift:
+        enabled: true
+        cusum_threshold: 5.0
+        cusum_slack: 0.5
+        window_s: 300
+
 storage:
   db_path: "data/PipesenseStorage.db"
-  site_id: "LACT-001"
 
 reporting:
-  report_path: "reports/run_report.md"
+  report_path: "reports/summary.md"
