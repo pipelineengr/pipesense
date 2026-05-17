@@ -257,4 +257,4 @@ storage:
   db_path: "data/PipesenseStorage.db"
 
 reporting:
-  report_path: "reports/summary.md"
+  report_path: "reports/run_report.md"

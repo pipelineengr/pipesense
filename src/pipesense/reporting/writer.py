@@ -11,46 +11,47 @@ class ReportWriter:
     """Writes a Report to a Markdown file.
 
     Usage:
-        writer = ReportWriter("reports/summary.md")
+        writer = ReportWriter("reports/run_report.md")
         writer.write(report)
     """
 
-    def __init__(self, output_path: Path) -> None:
+    def __init__(self, output_path: Path | str) -> None:
         self.output_path = Path(output_path)
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def write(self, report: Report) -> str:
+    def write(self, reports: list[Report]) -> str:
         """Render the report in the format defined below
-        and write it to disk. Returns the rendered string."""
+        and write it to disk. Returns the rendered string.
+        Updated to receive reports of multiple sites as a list
+        and write them into a single file"""
 
         # [WRITE] Confirm output path before any rendering — wrong path is easier to catch here
         # print(f"[ReportWriter] writing to {self.output_path}")
 
-        md = self.render(report)
+        rendered_sections = [self.render(r) for r in reports]
+        full_md = "\n\n<br><br>\n\n".join(rendered_sections)
 
         # [WRITE] Character count before the file is created — zero means render produced empty output
         # print(f"[ReportWriter] rendered {len(md)} chars")
 
-        self.output_path.write_text(md, encoding="utf-8")
-
         # [WRITE] Confirm file landed on disk with final size
         # print(f"[ReportWriter] done  size={self.output_path.stat().st_size} bytes")
 
-        return md
+        self.output_path.write_text(full_md, encoding="utf-8")
+        return full_md
 
+        
     def render(self, report: Report) -> str:
+        """Render a single site's report section."""
         def fmt(v: float | None) -> str:
             return f"{v:.3f}" if v is not None else "—"
 
         lines = [
-            "# Pipesense Site Report",
+            f"# Site Report: {report.site_id}",
             "",
-            f"**Site:** {report.site_id}",
             f"**Run:** {report.run_id}",
             f"**Generated:** {report.generated_at}",
             f"**Total alarms:** {report.total_alarms}",
-            "",
-            "---",
             "",
             "## Channel Statistics",
             "",
@@ -66,7 +67,7 @@ class ReportWriter:
                 f"{cs.alarm_count} |"
             )
 
-        lines += ["", "---", "", "## Alarm Summary", ""]
+        lines += ["", "## Alarm Summary", ""]
 
         alarm_rows = [
             (tag_id, sev, count)

@@ -16,6 +16,7 @@ from pipesense.reporting.reader import ArchiveReader
 from pipesense.reporting.builder import ReportBuilder
 from pipesense.reporting.writer import ReportWriter
 from pipesense.storage.alarm_log import AlarmLog
+from pathlib import Path
 
 logging.getLogger("asyncua").setLevel(logging.ERROR)
 
@@ -46,7 +47,13 @@ def parse_args(argv=None):
     p_val.add_argument("--config", dest="config_override", default=None)
 
     p_info = sub.add_parser("info", help="Show site and channel summary")
-    p_info.add_argument("--site", default=None, help="Site ID (default: all)")
+    p_info.add_argument(
+        "--site",
+        nargs="+",           
+        default=None,
+        metavar="SITE_ID",
+        help="Site ID(s) to target. Accepts one, multiple, or omit for all sites.",
+    )
     p_info.add_argument(
         "--config", dest="config_override", default=None,
         help="Path to site config YAML (overrides root --config)"
@@ -56,6 +63,13 @@ def parse_args(argv=None):
     p_status.add_argument(
         "--config", dest="config_override", default=None,
         help="Path to site config YAML (overrides root --config)"
+    )
+    p_status.add_argument(
+        "--site",
+        nargs="+",           
+        default=None,
+        metavar="SITE_ID",
+        help="Site ID(s) to target. Accepts one, multiple, or omit for all sites.",
     )
 
     p_run = sub.add_parser("run", help="Start a run")
@@ -85,6 +99,13 @@ def parse_args(argv=None):
         help="Directory for PI CSV exports (--source pi only). "
             "Defaults to the export_path in site config.",
     )
+    p_run.add_argument(
+        "--site",
+        nargs="+",           
+        default=None,
+        metavar="SITE_ID",
+        help="Site ID(s) to target. Accepts one, multiple, or omit for all sites.",
+    )
 
     p_report = sub.add_parser("report", help="Generate a report")
     p_report.add_argument(
@@ -94,6 +115,13 @@ def parse_args(argv=None):
     p_report.add_argument(
         "--config", dest="config_override", default=None,
         help="Path to site config YAML (overrides root --config)"
+    )
+    p_report.add_argument(
+        "--site",
+        nargs="+",           
+        default=None,
+        metavar="SITE_ID",
+        help="Site ID(s) to target. Accepts one, multiple, or omit for all sites.",
     )
     return parser.parse_args(argv)
 
@@ -134,7 +162,7 @@ async def _make_opcua_source(site, _args):
     cfg    = MockServerConfig(endpoint=site.opc_ua_endpoint)
     server = MockOpcUaServer(site, cfg)
     await server.start()
-    await asyncio.sleep(2)
+    await asyncio.sleep(2)                  # 2 second wait
     print(f"OPC-UA server started at {site.opc_ua_endpoint}")
 
     source = OpcUaSource(endpoint=site.opc_ua_endpoint)
@@ -171,51 +199,42 @@ _SOURCE = {
     "pi":    _make_pi_source,
 }
 
-async def _run_async(args, config_path: str) -> None:
-    config  = _load(config_path)
-    site    = config.sites[0]
-    storage = config.storage
-    run_id  = f"run_{int(_time.time())}"
-
-    print(f"Source     : {args.source}")
-    print(f"DB         : {storage.db_path}")
-    print(f"Run ID     : {run_id}")
-
+async def _run_single_site(
+    site,
+    args,
+    db_path: str,
+    run_id: str,
+    engine: "DetectionEngine",
+    stop_event: asyncio.Event,
+) -> None:
+    """Poll one site until stop_event is set or duration expires.
+    One instance of this coroutine runs per site in _run_async.
+    """
     source, server = await _SOURCE[args.source](site, args)
 
-    engine  = DetectionEngine(site)
-    running = True
-    start   = _time.monotonic()
+    # [RUN_SITE] Confirm source and server are ready for this site
+    # print(f"[_run_site] site={site.id!r}  source={args.source!r}  server={server is not None}")
 
-    def _stop(sig, frame):
-        nonlocal running
-        running = False
-
-    signal.signal(signal.SIGINT,  _stop)
-    signal.signal(signal.SIGTERM, _stop)
-
-    print("Starting run — press Ctrl+C to stop\n")
+    _opc_to_id = {ch.opc_node: ch.id for ch in site.channels}
+    start      = _time.monotonic()
 
     try:
-        with ArchiveWriter(storage.db_path, run_id=run_id, site_id=storage.site_id) as archive, \
-             AlarmLog(storage.db_path,      run_id=run_id, site_id=storage.site_id) as alarm_log:
+        with ArchiveWriter(db_path, run_id=run_id, site_id=site.id) as archive, \
+             AlarmLog(db_path,      run_id=run_id, site_id=site.id) as alarm_log:
 
-            _opc_to_id = {ch.opc_node: ch.id for ch in site.channels}
-
-            while running:
+            while not stop_event.is_set():
                 if args.duration is not None and (_time.monotonic() - start) >= args.duration:
                     break
 
                 tag_ids  = [ch.opc_node for ch in site.channels]
                 readings = await source.read_tags(tag_ids)
 
-                #for r in readings:
-                #    print(f"  tag={r.tag_id!r} value={r.value} quality={r.quality!r}")
-                                
                 for reading in readings:
-                    if not reading.is_good or reading.value != reading.value:  # Got a NaN check, added Nan != Nan which is always true
-                        # print(f"  SKIPPED: {reading.tag_id!r} value={reading.value} quality={reading.quality!r}")
+                    if not reading.is_good or reading.value != reading.value:
+                        # [RUN_SITE] Uncomment to see skipped bad/NaN readings per site
+                        # print(f"[_run_site] SKIPPED site={site.id!r} tag={reading.tag_id!r}")
                         continue
+
                     reading = TagReading(
                         tag_id=_opc_to_id.get(reading.tag_id, reading.tag_id),
                         value=reading.value,
@@ -224,11 +243,17 @@ async def _run_async(args, config_path: str) -> None:
                         unit=reading.unit,
                     )
                     archive.write(reading)
+
                     for event in engine.process(reading):
                         alarm_log.append(event)
-                        print(f"  [{event.severity.value}] {event.tag_id}: {event.message}")
+                        print(f"  [{site.id}] [{event.severity.value}] "
+                              f"{event.tag_id}: {event.message}")
 
                 archive.flush()
+
+                # [RUN_SITE] Uncomment to watch the poll cycle complete per site
+                # print(f"[_run_site] site={site.id!r}  cycle complete — sleeping 1s")
+
                 await asyncio.sleep(1.0)
 
     finally:
@@ -236,21 +261,74 @@ async def _run_async(args, config_path: str) -> None:
         if server is not None:
             await server.stop()
 
+        # [RUN_SITE] Confirm clean shutdown per site
+        # print(f"[_run_site] site={site.id!r}  shutdown complete")
+
+
+async def _run_async(args, config_path: str) -> None:
+    config  = _load(config_path)
+    sites   = _sites(config, getattr(args, "site", None))
+    storage = config.storage
+    run_id  = f"run_{int(_time.time())}"
+
+    print(f"Source     : {args.source}")
+    print(f"DB         : {storage.db_path}")
+    print(f"Run ID     : {run_id}")
+    print(f"Sites      : {[s.id for s in sites]}")
+
+    # [RUN] Confirm the full site list and run_id before any tasks are launched
+    # print(f"[_run_async] launching {len(sites)} site task(s)")
+
+    stop_event = asyncio.Event()
+
+    def _stop(sig, frame):
+        stop_event.set()
+
+    signal.signal(signal.SIGINT,  _stop)
+    signal.signal(signal.SIGTERM, _stop)
+
+    print("Starting run — press Ctrl+C to stop\n")
+
+    tasks = [
+        asyncio.create_task(
+            _run_single_site(
+                site=site,
+                args=args,
+                db_path=storage.db_path,
+                run_id=run_id,
+                engine=DetectionEngine(site),   # one engine per site — state is independent
+                stop_event=stop_event,
+            ),
+            name=f"run_site_{site.id}",
+        )
+        for site in sites
+    ]
+
+    # [RUN] Uncomment to see the task names as they're created
+    # print(f"[_run_async] tasks={[t.get_name() for t in tasks]}")
+
+    await asyncio.gather(*tasks, return_exceptions=True)
     print("Run complete.")
 
 def _validate(args, config_path: str) -> None:
     path   = args.config_override or config_path
     config = _load(path)
+    sites = _sites(config, getattr(args, "site", None))
+    
     n_sites    = len(config.sites)
-    n_channels = sum(len(s.channels) for s in config.sites)
+    
+    n_channels = sum(len(s.channels) for s in sites)
+    
     print(f"Config valid: {path}")
-    print(f"  {n_sites} site(s), {n_channels} channel(s) total")
-    for site in config.sites:
+    print(f"  {len(sites)} site(s), {n_channels} channel(s) total")
+    for site in sites:
         print(f"  [{site.id}] {site.name} — {len(site.channels)} channels")
 
 def _status(args, config_path: str) -> None:
     config = _load(config_path)
-    for site in config.sites:
+    sites  = _sites(config, getattr(args, "site", None))
+
+    for site in sites:
         print(f"\n[{site.id}] {site.name}")
         print(f"  OPC-UA endpoint : {site.opc_ua_endpoint}")
         pi = site.pi_historian
@@ -266,13 +344,8 @@ def _status(args, config_path: str) -> None:
 
 def _info(args, config_path: str) -> None:
     config = _load(config_path)
-    sites  = config.sites
-    if args.site:
-        site = config.get_site(args.site)
-        if not site:
-            print(f"Site {args.site!r} not found.", file=sys.stderr)
-            sys.exit(1)
-        sites = [site]
+    sites  = _sites(config, getattr(args, "site", None))
+
     for site in sites:
         print(f"\n{'=' * 52}")
         print(f"Site:       {site.id} — {site.name}")
@@ -287,11 +360,38 @@ def _info(args, config_path: str) -> None:
                 f"poll={ch.poll_interval_s}s"
             )
 
+def _sites(config, site_args: list[str] | None) -> list:
+    """Return the list of SiteConfig objects to process.
+
+    - site_args=None  → all sites in config
+    - site_args=[...] → only the requested site IDs, validated against config
+
+    Exits with an error if any requested site ID is not found.
+    """
+    if site_args is None:
+        # No --site flag — running against all sites in config
+        # print(f"[_sites] no filter — returning all {len(config.sites)} site(s)")
+        return config.sites
+
+    site_list = []
+    for sid in site_args:
+        site = config.get_site(sid)
+        if site is None:
+            print(f"Site {sid!r} not found in config. "
+                  f"Available: {[s.id for s in config.sites]}", file=sys.stderr)
+            sys.exit(1)
+        site_list.append(site)
+
+    # Show which site IDs were resolved after validation
+    # print(f"[_sites] resolved={[s.id for s in resolved]}")
+
+    return site_list
 
 def _report(args, config_path: str) -> None:
     config     = _load(config_path)
     storage    = config.storage
     report_cfg = config.reporting
+    sites      = _sites(config, getattr(args, "site", None))
 
     # [REPORT] Confirm db path and output path before any file IO
     # print(f"[report] db={storage.db_path!r}  output={report_cfg.report_path!r}")
@@ -308,22 +408,31 @@ def _report(args, config_path: str) -> None:
     # [REPORT] Show all available run_ids and which one was selected
     # print(f"[report] available_runs={available_runs}  selected={run_id!r}")
 
-    reader      = ArchiveReader(storage.db_path, run_id=run_id, site_id=storage.site_id)
-    channel_dfs = reader.load_by_channel()
-    alarms      = AlarmLog(storage.db_path, run_id=run_id, site_id=storage.site_id).read_all()
+    full_report = []
 
-    report = ReportBuilder(
-        channel_dfs=channel_dfs,
-        alarm_records=alarms,
-        run_id=run_id,
-        site_id=storage.site_id,
-    ).build()
+    for site in sites:
+        reader      = ArchiveReader(storage.db_path, run_id=run_id, site_id=storage.site_id)
+        channel_dfs = reader.load_by_channel()
+        alarms      = AlarmLog(storage.db_path, run_id=run_id, site_id=storage.site_id).read_all()
+
+        report = ReportBuilder(
+            channel_dfs=channel_dfs,
+            alarm_records=alarms,
+            run_id=run_id,
+            site_id=storage.site_id,
+        ).build()
+
+        full_report.append(report)
 
     # [REPORT] Confirm the output path just before writing
     # print(f"[report] writing to {report_cfg.report_path!r}")
 
-    ReportWriter(report_cfg.report_path).write(report)
-    print(f"Report written to {report_cfg.report_path}")
+    report_path = getattr(report_cfg, "report_path", "reports/run_report.md")
+    out = Path(report_path)
+    
+    ReportWriter(out).write(full_report)
+    
+    print(f"Report containing {len(full_report)} site(s) written → {out}")
 
 def main():
     args = parse_args()
