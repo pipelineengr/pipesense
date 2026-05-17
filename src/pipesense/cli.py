@@ -393,39 +393,46 @@ def _report(args, config_path: str) -> None:
     report_cfg = config.reporting
     sites      = _sites(config, getattr(args, "site", None))
 
-    # [REPORT] Confirm db path and output path before any file IO
-    # print(f"[report] db={storage.db_path!r}  output={report_cfg.report_path!r}")
+    # Confirm db path and output path before any file IO
+    # print(f"db={storage.db_path!r}  output={report_cfg.report_path!r}")
 
-    reader         = ArchiveReader(storage.db_path, run_id="", site_id=storage.site_id)
+    reader         = ArchiveReader(storage.db_path, run_id="", site_id=sites[0].id)
     available_runs = reader.list_runs()
 
     if not available_runs:
         print(f"No runs found in database {storage.db_path}", file=sys.stderr)
         sys.exit(1)
 
-    run_id = args.run_id if args.run_id in (available_runs or []) else available_runs[-1]
+    arg_run_id = getattr(args, "run_id", None)
+    if arg_run_id and arg_run_id in available_runs:
+        run_id = arg_run_id
+    else:
+        run_id = available_runs[-1]
 
-    # [REPORT] Show all available run_ids and which one was selected
-    # print(f"[report] available_runs={available_runs}  selected={run_id!r}")
+    # Show all available run_ids and which one was selected
+    # print(f"available_runs={available_runs}  selected={run_id!r}")
 
     full_report = []
 
     for site in sites:
-        reader      = ArchiveReader(storage.db_path, run_id=run_id, site_id=storage.site_id)
+        reader      = ArchiveReader(storage.db_path, run_id=run_id, site_id=site.id)
         channel_dfs = reader.load_by_channel()
-        alarms      = AlarmLog(storage.db_path, run_id=run_id, site_id=storage.site_id).read_all()
+        alarms      = AlarmLog(storage.db_path, run_id=run_id, site_id=site.id).read_all()
+        
+        # Confirm how many channels and alarms came back per site
+        # print(f"site={site.id!r}  channels={len(channel_dfs)}  alarms={len(alarms)}")
 
         report = ReportBuilder(
             channel_dfs=channel_dfs,
             alarm_records=alarms,
             run_id=run_id,
-            site_id=storage.site_id,
+            site_id=site.id,
         ).build()
 
         full_report.append(report)
 
-    # [REPORT] Confirm the output path just before writing
-    # print(f"[report] writing to {report_cfg.report_path!r}")
+    # Confirm the output path just before writing
+    # print(f"writing to {report_cfg.report_path!r}")
 
     report_path = getattr(report_cfg, "report_path", "reports/run_report.md")
     out = Path(report_path)
