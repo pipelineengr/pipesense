@@ -8,8 +8,8 @@ import pytest
 
 from pipesense.config.loader import load_config
 from pipesense.sources.base import DataSource, TagReading
-from pipesense.sources.pi_source import PIHistorianSource
 from pipesense.sources.pi_generator import generate_pi_export
+from pipesense.sources.pi_source import PIHistorianSource
 from pipesense.sources.simulate import CHANNEL_SIMULATORS
 
 
