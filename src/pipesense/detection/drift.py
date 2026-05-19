@@ -1,6 +1,6 @@
 """Functions to detect drift through cumulative sum, positive or negative"""
+
 from __future__ import annotations
-from typing import Optional
 
 from pipesense.detection.base import AlarmEvent, AlarmSeverity, Detector
 from pipesense.sources.base import TagReading
@@ -27,7 +27,7 @@ class DriftDetector(Detector):
     def _normalise(self, value: float) -> float:
         return (value - self._mu) / self._sigma
 
-    def update(self, reading: TagReading) -> Optional[AlarmEvent]:
+    def update(self, reading: TagReading) -> AlarmEvent | None:
         if reading.quality == "Bad":
             return None
 
@@ -37,7 +37,7 @@ class DriftDetector(Detector):
         # Print statement to show the normalised value (xi) for each reading
         # enable this to see what CUSUM actually works with (as multiples of sigma, not the raw unit values).
         # Values near 0 = on baseline. Sustained difference, positive or negative will cause drift to accumulate.
-        
+
         # print(f"[DriftDetector:{self.tag_id}] reading #{self._reading_count} "
         #       f"raw={reading.value:.3f} xi={xi:.4f} (baseline={self._mu}, sigma={self._sigma})")
 
@@ -46,21 +46,21 @@ class DriftDetector(Detector):
 
         # Print statement to show both CUSUM accumulators after every update
         # enable this to watch drift build up gradually. Values climb toward h={h} before an alarm.
-        
+
         # print(f"[DriftDetector:{self.tag_id}] cusum_pos={self._cusum_pos:.4f} "
         #       f"cusum_neg={self._cusum_neg:.4f} threshold={self._h} drift_active={self._drift_active}")
 
-        #If the cumulative drift falls below the limit, the active flag is cleared
+        # If the cumulative drift falls below the limit, the active flag is cleared
         if self._drift_active:
             if self._cusum_pos < self._h and self._cusum_neg < self._h:
                 self._drift_active = False
                 # Print statement to show when drift_active clears after accumulators fall back below the limit
                 # enable this to confirm the detector rearms correctly after a drift event resolves.
-                
+
                 # print(f"[DriftDetector:{self.tag_id}] drift_active cleared — detector rearmed")
             return None
 
-        direction: Optional[str] = None
+        direction: str | None = None
         cusum_val: float = 0.0
         if self._cusum_pos >= self._h:
             direction = "high"
@@ -74,7 +74,7 @@ class DriftDetector(Detector):
 
         # Print statement to show the cumulative sum crossing the threshold (h) triggers the detector alarm —
         # enable this to see which direction the sum crossed the limit and by how much.
-        
+
         # print(f"[DriftDetector:{self.tag_id}] threshold crossed — direction={direction} "
         #       f"cusum_val={cusum_val:.4f} >= h={self._h}")
 
@@ -99,12 +99,12 @@ class DriftDetector(Detector):
             },
         )
         # Print statement to show the readings at the moment the detector alarm is triggered
-        # enable this alongside the accumulator print above to see exactly which value reading 
+        # enable this alongside the accumulator print above to see exactly which value reading
         # pushed cusum over threshold.
-        
+
         # print(f"[DriftDetector:{self.tag_id}] DRIFT ALARM — direction={direction} "
         #       f"value={reading.value:.3f} after {self._reading_count} readings")
-        
+
         return event
 
     def reset(self) -> None:

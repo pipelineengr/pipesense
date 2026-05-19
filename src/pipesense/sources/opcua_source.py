@@ -1,4 +1,5 @@
 """OPC-UA virtual source — simulates a field instrument"""
+
 import logging
 from datetime import datetime, timezone
 
@@ -57,9 +58,7 @@ class OpcUaSource(DataSource):
 
             quality = _parse_quality(dv.StatusCode)
             value = (
-                float(dv.Value.Value)
-                if dv.Value.Value is not None
-                else float("nan")
+                float(dv.Value.Value) if dv.Value.Value is not None else float("nan")
             )
             ts = dv.SourceTimestamp or datetime.now(timezone.utc)
 
@@ -97,7 +96,7 @@ class OpcUaSource(DataSource):
     def status(self) -> SourceStatus:
         return SourceStatus(
             connected=self._client is not None,
-            source_type="OPC-UA",       #Source name for the virtual OPC-UA Server 
+            source_type="OPC-UA",  # Source name for the virtual OPC-UA Server
             endpoint=self._endpoint,
             n_tags=self._tag_count,
             last_error=self._last_error,
@@ -116,6 +115,6 @@ def _parse_quality(status_code) -> str:
 
         # print(f"[QUALITY] StatusCode resolved → 'Bad' (code={status_code})")
         return "Bad"
-    except Exception as exc:
+    except Exception:
         # print(f"[QUALITY] _parse_quality exception: {exc}")
         return "Unknown"

@@ -1,4 +1,5 @@
 """Tests for archive writer."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -7,7 +8,7 @@ from datetime import datetime, timezone
 import pytest
 
 from pipesense.sources.base import TagReading
-from pipesense.storage.archive import ArchiveWriter, QUALITY_MAP
+from pipesense.storage.archive import ArchiveWriter
 
 
 def _reading(
@@ -27,11 +28,11 @@ def _reading(
 def _rows(db_path, sql, params=()):
     """Open a fresh read-only connection and return all matching rows."""
     connection = sqlite3.connect(db_path)
-    try:    
+    try:
         return connection.execute(sql, params).fetchall()
     finally:
         connection.close()
-    
+
 
 @pytest.fixture
 def tmp_db(tmp_path):
@@ -46,7 +47,9 @@ def test_open_creates_readings_table(tmp_db):
         pass
     connection = sqlite3.connect(tmp_db.path)
     try:
-        tables = connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        tables = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
     finally:
         connection.close()
     assert ("readings",) in tables

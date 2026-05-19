@@ -3,8 +3,6 @@
 from dataclasses import dataclass, field
 from typing import Literal
 
-from pipesense import reporting
-
 ChannelType = Literal[
     "flow", "pressure", "temperature", "level", "vibration"
 ]  # Five parameters to monitor and control
@@ -73,19 +71,26 @@ class PIHistorianConfig:
     export_path: str = "./data/pi_exports"
     tag_prefix: str = ""
 
+
 @dataclass
 class StorageConfig:
     """SQLite storage paths and site identifier."""
+
     db_path: str = "data/PipesenseStorage.db"
     site_id: str = "unknown"
 
+
 @dataclass
 class ReportConfig:
-    report_path: str = "reports/run_report.md"  # Output path for the generated final markdown file    
+    report_path: str = (
+        "reports/run_report.md"  # Output path for the generated final markdown file
+    )
+
 
 @dataclass
 class SiteConfig:
     """Complete configuration for a single monitored site."""
+
     id: str
     name: str
     description: str

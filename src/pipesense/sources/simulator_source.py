@@ -1,6 +1,7 @@
 """Source function to allow the internal simulator identical to the OPC-UA and PI data sources
 all three work the same way - connect / disconnect / read_tag / read_tags / status
 """
+
 from datetime import datetime, timezone
 
 from pipesense.config.schema import SiteConfig
@@ -16,15 +17,13 @@ class SimulatorSource(DataSource):
     """
 
     def __init__(self, site: SiteConfig) -> None:
-        self._site               = site
-        self._connected          = False
+        self._site = site
+        self._connected = False
         self._last_error: str | None = None
         self._opc_to_channel: dict[str, str] = {
             ch.opc_node: ch.id for ch in site.channels
         }
-        self._channel_to_type: dict[str, str] = {
-            ch.id: ch.type for ch in site.channels
-        }
+        self._channel_to_type: dict[str, str] = {ch.id: ch.type for ch in site.channels}
 
     async def connect(self) -> None:
         self._connected = True
@@ -34,12 +33,14 @@ class SimulatorSource(DataSource):
 
     async def read_tag(self, tag_id: str) -> TagReading:
         """tag_id is an opc_node string — resolve to channel then simulate."""
-        channel_id   = self._opc_to_channel.get(tag_id, tag_id)
+        channel_id = self._opc_to_channel.get(tag_id, tag_id)
         channel_type = self._channel_to_type.get(channel_id)
-        sim_fn       = CHANNEL_SIMULATORS.get(channel_type) if channel_type else None
+        sim_fn = CHANNEL_SIMULATORS.get(channel_type) if channel_type else None
 
         if sim_fn is None:
-            return TagReading.bad(tag_id, reason=f"No simulator for type={channel_type!r}")
+            return TagReading.bad(
+                tag_id, reason=f"No simulator for type={channel_type!r}"
+            )
 
         return TagReading(
             tag_id=channel_id,

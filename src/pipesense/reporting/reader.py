@@ -1,12 +1,12 @@
-"""Reads the SQLite DB created and write them as DataFrames, 
+"""Reads the SQLite DB created and write them as DataFrames,
 the DF is then used to create a summary report for a run
 (can be either for a single site or multiple sites)"""
+
 from __future__ import annotations
 
 import sqlite3
 from contextlib import closing
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -25,8 +25,8 @@ class ArchiveReader:
     """
 
     def __init__(self, path: Path, run_id: str, site_id: str) -> None:
-        self.path    = Path(path)
-        self.run_id  = run_id
+        self.path = Path(path)
+        self.run_id = run_id
         self.site_id = site_id
 
         # [INIT] Confirm the three values that scope every SELECT in this reader
@@ -78,8 +78,7 @@ class ArchiveReader:
         """Return a dict mapping tag_id -> DataFrame for that channel only."""
         df = self.load()
         result = {
-            tag: group.reset_index(drop=True)
-            for tag, group in df.groupby("tag_id")
+            tag: group.reset_index(drop=True) for tag, group in df.groupby("tag_id")
         }
 
         # [QUERY] Show each channel's tag_id and row count after splitting

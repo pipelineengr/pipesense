@@ -1,14 +1,14 @@
 """Tests for spike detector, drift detector, and detection engine."""
+
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
-from pipesense.detection.base import AlarmEvent, AlarmSeverity, Detector
-from pipesense.detection.spike import SpikeDetector
+from pipesense.detection.base import AlarmSeverity
 from pipesense.detection.drift import DriftDetector
 from pipesense.detection.engine import DetectionEngine
+from pipesense.detection.spike import SpikeDetector
 from pipesense.sources.base import TagReading
 
 
@@ -23,6 +23,7 @@ def _reading(value: float, tag: str = "FT-101", quality: str = "Good") -> TagRea
 
 def _warm_spike(detector: SpikeDetector, value: float = 100.0, count: int = 25) -> None:
     import random
+
     rng = random.Random(85)
     for _ in range(count):
         detector.update(_reading(value + rng.gauss(0, 1.0)))
@@ -103,14 +104,18 @@ class TestSpikeDetector:
 
 class TestDriftDetector:
     def test_no_alarm_at_baseline(self):
-        det = DriftDetector("PT-201", baseline_mean=500.0, baseline_std=5.0, k=0.5, h=5.0)
+        det = DriftDetector(
+            "PT-201", baseline_mean=500.0, baseline_std=5.0, k=0.5, h=5.0
+        )
         for _ in range(50):
             result = det.update(_reading(500.0, tag="PT-201"))
             assert result is None
         # print(f"\n  [test_no_alarm_at_baseline] cusum_pos={det._cusum_pos:.4f}, cusum_neg={det._cusum_neg:.4f} (both near 0)")
 
     def test_upward_drift_detected(self):
-        det = DriftDetector("PT-201", baseline_mean=500.0, baseline_std=5.0, k=0.5, h=5.0)
+        det = DriftDetector(
+            "PT-201", baseline_mean=500.0, baseline_std=5.0, k=0.5, h=5.0
+        )
         alarm = None
         for _ in range(60):
             alarm = det.update(_reading(510.0, tag="PT-201"))
@@ -122,7 +127,9 @@ class TestDriftDetector:
         assert alarm.metadata["direction"] == "high"
 
     def test_downward_drift_detected(self):
-        det = DriftDetector("PT-201", baseline_mean=500.0, baseline_std=5.0, k=0.5, h=5.0)
+        det = DriftDetector(
+            "PT-201", baseline_mean=500.0, baseline_std=5.0, k=0.5, h=5.0
+        )
         alarm = None
         for _ in range(60):
             alarm = det.update(_reading(490.0, tag="PT-201"))
@@ -133,7 +140,9 @@ class TestDriftDetector:
         assert alarm.metadata["direction"] == "low"
 
     def test_no_repeated_alarm_while_drift_active(self):
-        det = DriftDetector("PT-201", baseline_mean=500.0, baseline_std=5.0, k=0.5, h=5.0)
+        det = DriftDetector(
+            "PT-201", baseline_mean=500.0, baseline_std=5.0, k=0.5, h=5.0
+        )
         alarms = []
         for _ in range(100):
             r = det.update(_reading(510.0, tag="PT-201"))
@@ -175,30 +184,34 @@ class TestDriftDetector:
 class TestDetectionEngine:
     def _make_site(self):
         from pipesense.config.schema import (
-            ChannelConfig, DetectionConfig, SpikeDetectionConfig,
-            DriftDetectionConfig, SiteConfig, Thresholds,
+            ChannelConfig,
+            DetectionConfig,
+            DriftDetectionConfig,
+            SpikeDetectionConfig,
+            Thresholds,
         )
+
         thresh = Thresholds(low_low=0.0, low=10.0, high=900.0, high_high=1000.0)
         channels = [
-            ChannelConfig(                          
-                id="FT-101",                        
+            ChannelConfig(
+                id="FT-101",
                 name="Flow",
-                description="",                     
-                opc_node="ns=2;s=FT101.PV",        
-                pi_tag="OIL.FT101.PV",             
+                description="",
+                opc_node="ns=2;s=FT101.PV",
+                pi_tag="OIL.FT101.PV",
                 unit="m3/h",
-                type="flow",                        
+                type="flow",
                 poll_interval_s=5,
                 thresholds=thresh,
             ),
             ChannelConfig(
-                id="PT-201",                        
+                id="PT-201",
                 name="Pressure",
                 description="",
                 opc_node="ns=2;s=PT201.PV",
                 pi_tag="OIL.PT201.PV",
                 unit="kPa",
-                type="pressure",                   
+                type="pressure",
                 poll_interval_s=5,
                 thresholds=thresh,
             ),
@@ -206,14 +219,14 @@ class TestDetectionEngine:
         detection = DetectionConfig(
             spike=SpikeDetectionConfig(
                 enabled=True,
-                z_threshold=3.0,                   
-                crit_sigma=5.0,                    
-                min_samples=20,                    
+                z_threshold=3.0,
+                crit_sigma=5.0,
+                min_samples=20,
             ),
             drift=DriftDetectionConfig(
                 enabled=True,
-                cusum_slack=0.5,                   
-                cusum_threshold=5.0,              
+                cusum_slack=0.5,
+                cusum_threshold=5.0,
             ),
         )
         return MagicMock(channels=channels, detection=detection)

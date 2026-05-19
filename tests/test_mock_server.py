@@ -1,8 +1,6 @@
 """Smoke tests for the virtual OPC-UA server."""
-import asyncio, pytest
-from pipesense.sources.simulate import (
-    CHANNEL_SIMULATORS, flow_value, pressure_value
-)
+
+from pipesense.sources.simulate import CHANNEL_SIMULATORS, flow_value, pressure_value
 
 
 def test_flow_value_in_range():
@@ -15,7 +13,7 @@ def test_flow_value_in_range():
 def test_pressure_value_near_setpoint():
     values = [pressure_value(setpoint=620.0, noise=3.5) for _ in range(100)]
     mean = sum(values) / len(values)
-    #print (mean)
+    # print (mean)
     assert 610.0 < mean < 630.0
 
 
@@ -25,4 +23,4 @@ def test_all_simulator_types_return_float():
         # print(f"DEBUG: Testing {ch_type} | Function: {fn.__name__} | Result: {result}")
         # print(f"DEBUG: {ch_type} type: {type(result)}")
         assert isinstance(result, float), f"{ch_type} returned {type(result)}"
-        assert result == result   
+        assert result == result

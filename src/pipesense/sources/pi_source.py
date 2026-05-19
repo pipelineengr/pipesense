@@ -1,6 +1,7 @@
 """PI historian DataSource — loads archived tag data from CSV exports."""
+
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -104,9 +105,7 @@ class PIHistorianSource(DataSource):
 
         return reading
 
-    async def read_at(
-        self, channel_id: str, timestamp: datetime
-    ) -> TagReading:
+    async def read_at(self, channel_id: str, timestamp: datetime) -> TagReading:
         """Return the archived value closest to the given timestamp."""
         df = self._data.get(channel_id)
         if df is None or df.empty:
@@ -115,7 +114,6 @@ class PIHistorianSource(DataSource):
         ts = pd.Timestamp(timestamp)
         idx = (df["Timestamp"] - ts).abs().idxmin()
         row = df.iloc[idx]
-        delta = abs((df["Timestamp"].iloc[idx] - ts).total_seconds())
 
         # [PI] Print statement to see point-in-time lookups with how close
         # the nearest archived value is to the requested timestamp.
@@ -142,9 +140,8 @@ class PIHistorianSource(DataSource):
         if df is None or df.empty:
             return []
 
-        mask = (
-            (df["Timestamp"] >= pd.Timestamp(start)) &
-            (df["Timestamp"] <= pd.Timestamp(end))
+        mask = (df["Timestamp"] >= pd.Timestamp(start)) & (
+            df["Timestamp"] <= pd.Timestamp(end)
         )
         subset = df[mask]
 
@@ -175,7 +172,7 @@ class PIHistorianSource(DataSource):
     def status(self) -> SourceStatus:
         return SourceStatus(
             connected=self._connected,
-            source_type="PI Historian",         #Source name for the generated PI data
+            source_type="PI Historian",  # Source name for the generated PI data
             endpoint=str(self._export_dir),
             n_tags=len(self._data),
             last_error=self._last_error,

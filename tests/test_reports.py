@@ -1,6 +1,7 @@
 """Unit tests for reader, builder and writer functions.
 Each test here is done using a small SQLite DB created here
 in the sample_db function"""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -8,18 +9,18 @@ from pathlib import Path
 
 import pytest
 
-from pipesense.reporting.reader import ArchiveReader
-from pipesense.reporting.builder import Report, ReportBuilder
-from pipesense.reporting.writer import ReportWriter
-from pipesense.storage.archive import ArchiveWriter
-from pipesense.storage.alarm_log import AlarmLog
-from pipesense.sources.base import TagReading
 from pipesense.detection.base import AlarmEvent, AlarmSeverity
+from pipesense.reporting.builder import Report, ReportBuilder
+from pipesense.reporting.reader import ArchiveReader
+from pipesense.reporting.writer import ReportWriter
+from pipesense.sources.base import TagReading
+from pipesense.storage.alarm_log import AlarmLog
+from pipesense.storage.archive import ArchiveWriter
 
-RUN_ID  = "test_run_001"
+RUN_ID = "test_run_001"
 SITE_ID = "LACT-001"
-TAGS    = ["FT-101", "PT-201", "TT-301", "LT-401", "VT-501"]
-N_ROWS  = 20   # readings per channel written by the fixture
+TAGS = ["FT-101", "PT-201", "TT-301", "LT-401", "VT-501"]
+N_ROWS = 20  # readings per channel written by the fixture
 
 
 @pytest.fixture
@@ -30,7 +31,7 @@ def sample_db(tmp_path) -> Path:
     tmp_path is a pytest built-in that gives a unique temp directory per test.
     The DB only exists for the duration of the test that uses this fixture.
     """
-    db  = tmp_path / "pipesense.db"
+    db = tmp_path / "pipesense.db"
     now = datetime.now(timezone.utc)
 
     # Print Statement to see the exact path pytest assigned.
@@ -40,27 +41,31 @@ def sample_db(tmp_path) -> Path:
     with ArchiveWriter(db, run_id=RUN_ID, site_id=SITE_ID) as aw:
         for i in range(N_ROWS):
             for tag in TAGS:
-                aw.write(TagReading(
-                    tag_id=tag,
-                    value=float(100 + i),   # values 100.0 … 119.0
-                    timestamp=now,
-                    quality="Good",
-                    unit="m3/h",
-                ))
+                aw.write(
+                    TagReading(
+                        tag_id=tag,
+                        value=float(100 + i),  # values 100.0 … 119.0
+                        timestamp=now,
+                        quality="Good",
+                        unit="m3/h",
+                    )
+                )
 
     # Print Statement to confirm alarm rows were written.
     # print(f"[fixture] writing 3 alarms on FT-101 (2x HIGH, 1x CRITICAL)")
 
     with AlarmLog(db, run_id=RUN_ID, site_id=SITE_ID) as log:
         for sev in [AlarmSeverity.HIGH, AlarmSeverity.HIGH, AlarmSeverity.CRITICAL]:
-            log.append(AlarmEvent(
-                tag_id="FT-101",
-                severity=sev,
-                detector="spike",
-                value=200.0,
-                timestamp=now,
-                message="test alarm",
-            ))
+            log.append(
+                AlarmEvent(
+                    tag_id="FT-101",
+                    severity=sev,
+                    detector="spike",
+                    value=200.0,
+                    timestamp=now,
+                    message="test alarm",
+                )
+            )
 
     return db
 
@@ -74,7 +79,7 @@ def reader(sample_db) -> ArchiveReader:
 @pytest.fixture
 def report(sample_db) -> Report:
     """Fully built Report from the sample_db fixture — used by ReportBuilder and ReportWriter tests."""
-    r      = ArchiveReader(sample_db, run_id=RUN_ID, site_id=SITE_ID)
+    r = ArchiveReader(sample_db, run_id=RUN_ID, site_id=SITE_ID)
     alarms = AlarmLog(sample_db, run_id=RUN_ID, site_id=SITE_ID).read_all()
 
     # Print Statement to see how many alarm records were loaded before the builder runs.
@@ -89,7 +94,6 @@ def report(sample_db) -> Report:
 
 
 class TestArchiveReader:
-
     def test_list_runs_contains_run_id(self, reader):
         """list_runs() must return the run_id that was written by the fixture."""
         runs = reader.list_runs()
@@ -120,6 +124,7 @@ class TestArchiveReader:
     def test_load_ts_is_datetime(self, reader):
         """ts column must be converted from Unix float to datetime by load()."""
         import pandas as pd
+
         df = reader.load()
 
         # Print Statement to see the dtype of the ts column.
@@ -140,7 +145,6 @@ class TestArchiveReader:
         """Each channel DataFrame must have exactly N_ROWS rows."""
         dfs = reader.load_by_channel()
         for tag, df in dfs.items():
-
             # Print Statement to see per-channel row counts.
             # print(f"[test] tag={tag!r}  rows={len(df)}")
 
@@ -153,7 +157,7 @@ class TestArchiveReader:
 
     def test_unknown_run_id_returns_empty_df(self, sample_db):
         """Querying a run_id that doesn't exist must return an empty DataFrame, not raise."""
-        r  = ArchiveReader(sample_db, run_id="no_such_run", site_id=SITE_ID)
+        r = ArchiveReader(sample_db, run_id="no_such_run", site_id=SITE_ID)
         df = r.load()
 
         # Print Statement to confirm the DataFrame is truly empty.
@@ -163,7 +167,6 @@ class TestArchiveReader:
 
 
 class TestReportBuilder:
-
     def test_run_id_on_report(self, report):
         assert report.run_id == RUN_ID
 
@@ -187,12 +190,13 @@ class TestReportBuilder:
         assert report.channel_stats["FT-101"].good_count == N_ROWS
 
     def test_bad_and_uncertain_counts_are_zero(self, report):
-        assert report.channel_stats["FT-101"].bad_count       == 0
+        assert report.channel_stats["FT-101"].bad_count == 0
         assert report.channel_stats["FT-101"].uncertain_count == 0
 
     def test_mean_correct(self, report):
         """Mean of values 100.0…119.0 = 109.5."""
         import statistics
+
         expected = statistics.mean(float(100 + i) for i in range(N_ROWS))
 
         # Print Statement to compare computed vs expected mean.
@@ -215,7 +219,7 @@ class TestReportBuilder:
 
     def test_alarm_by_severity_breakdown(self, report):
         sev = report.channel_stats["FT-101"].alarm_by_severity
-        assert sev.get("HIGH")     == 2
+        assert sev.get("HIGH") == 2
         assert sev.get("CRITICAL") == 1
 
     def test_total_alarms(self, report):
@@ -224,8 +228,9 @@ class TestReportBuilder:
     def test_no_alarms_on_other_channels(self, report):
         """Only FT-101 had alarms — all other channels should have alarm_count=0."""
         for tag in ["PT-201", "TT-301", "LT-401", "VT-501"]:
-            assert report.channel_stats[tag].alarm_count == 0, \
+            assert report.channel_stats[tag].alarm_count == 0, (
                 f"{tag} unexpectedly has alarms"
+            )
 
     def test_bad_quality_produces_none_stats(self, sample_db):
         """A channel where every reading has Bad quality must produce None stats, not crash.
@@ -233,11 +238,17 @@ class TestReportBuilder:
         """
         now = datetime.now(timezone.utc)
         with ArchiveWriter(sample_db, run_id="bad_run", site_id=SITE_ID) as aw:
-            aw.write(TagReading(
-                tag_id="VT-501", value=0.0, timestamp=now, quality="Bad", unit="mm/s"
-            ))
+            aw.write(
+                TagReading(
+                    tag_id="VT-501",
+                    value=0.0,
+                    timestamp=now,
+                    quality="Bad",
+                    unit="mm/s",
+                )
+            )
 
-        r      = ArchiveReader(sample_db, run_id="bad_run", site_id=SITE_ID)
+        r = ArchiveReader(sample_db, run_id="bad_run", site_id=SITE_ID)
         alarms = AlarmLog(sample_db, run_id="bad_run", site_id=SITE_ID).read_all()
         bad_report = ReportBuilder(
             channel_dfs=r.load_by_channel(),
@@ -252,11 +263,10 @@ class TestReportBuilder:
         # print(f"[test] bad quality stats: mean={cs.mean}  std={cs.std}")
 
         assert cs.mean is None
-        assert cs.std  is None
+        assert cs.std is None
 
 
 class TestReportWriter:
-
     def test_creates_file(self, report, tmp_path):
         """write() must create the output file on disk."""
         out = tmp_path / "reports" / "summary.md"
@@ -275,7 +285,7 @@ class TestReportWriter:
         # print(f"[test] md preview:\n{md[:200]}")
 
         assert SITE_ID in md
-        assert RUN_ID  in md
+        assert RUN_ID in md
 
     def test_contains_all_channel_tags(self, report, tmp_path):
         """Every channel tag_id must appear somewhere in the rendered Markdown."""
@@ -286,7 +296,7 @@ class TestReportWriter:
     def test_alarm_severities_in_output(self, report, tmp_path):
         """HIGH and CRITICAL must appear in the Alarm Summary section."""
         md = ReportWriter(tmp_path / "out.md").write([report])
-        assert "HIGH"     in md
+        assert "HIGH" in md
         assert "CRITICAL" in md
 
     def test_no_alarms_message(self, sample_db, tmp_path):
@@ -296,7 +306,7 @@ class TestReportWriter:
         r = ArchiveReader(sample_db, run_id=RUN_ID, site_id=SITE_ID)
         no_alarm_report = ReportBuilder(
             channel_dfs=r.load_by_channel(),
-            alarm_records=[],    # ← explicitly empty
+            alarm_records=[],  # ← explicitly empty
             run_id=RUN_ID,
             site_id=SITE_ID,
         ).build()
@@ -317,5 +327,5 @@ class TestReportWriter:
         """The rendered output must contain the expected section headers."""
         md = ReportWriter(tmp_path / "out.md").write([report])
         assert f"# Site Report: {SITE_ID}" in md
-        assert "## Channel Statistics"     in md
-        assert "## Alarm Summary"          in md
+        assert "## Channel Statistics" in md
+        assert "## Alarm Summary" in md

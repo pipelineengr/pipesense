@@ -1,4 +1,5 @@
 """OPC-UA virtual server — simulates a field instrument"""
+
 import asyncio
 import logging
 from dataclasses import dataclass
@@ -13,8 +14,10 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MockServerConfig:
-    endpoint: str = "opc.tcp://localhost:4840"      # Server is created in the local machine for testing
-    namespace: str = "urn:pipesense:mock"           # Identifier for the OPC-UA server
+    endpoint: str = (
+        "opc.tcp://localhost:4840"  # Server is created in the local machine for testing
+    )
+    namespace: str = "urn:pipesense:mock"  # Identifier for the OPC-UA server
     update_interval_s: float = 1.0
 
 
@@ -57,7 +60,9 @@ class MockOpcUaServer:
             sim_fn = CHANNEL_SIMULATORS.get(ch.type)
             initial = sim_fn() if sim_fn else 0.0
             # var = await site_node.add_variable(idx, ch.opc_node, initial)
-            node_id = ua.NodeId(ch.opc_node.split(";s=")[1], idx)   # e.g. "LACT001.FT101.PV" in ns=2
+            node_id = ua.NodeId(
+                ch.opc_node.split(";s=")[1], idx
+            )  # e.g. "LACT001.FT101.PV" in ns=2
             var = await site_node.add_variable(node_id, ch.opc_node, initial)
             await var.set_writable()
             self._nodes[ch.opc_node] = var

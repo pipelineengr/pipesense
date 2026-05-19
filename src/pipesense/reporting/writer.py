@@ -1,10 +1,11 @@
 """Writes the report dataclass created in builder.py
 and outputs it as a markdown file for user consumption"""
+
 from __future__ import annotations
 
 from pathlib import Path
 
-from pipesense.reporting.builder import ChannelStats, Report
+from pipesense.reporting.builder import Report
 
 
 class ReportWriter:
@@ -40,9 +41,9 @@ class ReportWriter:
         self.output_path.write_text(full_md, encoding="utf-8")
         return full_md
 
-        
     def render(self, report: Report) -> str:
         """Render a single site's report section."""
+
         def fmt(v: float | None) -> str:
             return f"{v:.3f}" if v is not None else "—"
 

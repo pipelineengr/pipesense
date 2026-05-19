@@ -1,5 +1,6 @@
 """Generate sample PI historian export CSVs for testing."""
-import csv, math, random
+
+import csv
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -39,12 +40,14 @@ def generate_pi_export(
         for i in range(n_points):
             ts = start + timedelta(seconds=i * interval_s)
             value = sim_fn() if sim_fn else 0.0
-            rows.append({
-                "Timestamp": ts.isoformat(),
-                "TagName": ch.pi_tag,
-                "Value": round(value, 4),
-                "Quality": "Good",
-            })
+            rows.append(
+                {
+                    "Timestamp": ts.isoformat(),
+                    "TagName": ch.pi_tag,
+                    "Value": round(value, 4),
+                    "Quality": "Good",
+                }
+            )
 
         with open(path, "w", newline="") as f:
             writer = csv.DictWriter(

@@ -1,9 +1,9 @@
 """Builder to calculate the statistics for the report from alarms and readings"""
+
 from __future__ import annotations
 
 import datetime as dt
 from dataclasses import dataclass, field
-from typing import Optional
 
 import pandas as pd
 
@@ -11,31 +11,32 @@ import pandas as pd
 @dataclass
 class ChannelStats:
     """Computed statistics for a channel over the run."""
-    
-    #From readings
-    tag_id:           str
-    sample_count:     int
-    good_count:       int
-    bad_count:        int
-    uncertain_count:  int
-    mean:             Optional[float] = None   
-    std:              Optional[float] = None
-    min:              Optional[float] = None
-    max:              Optional[float] = None
-    
-    #From Alarms
-    alarm_count:      int = 0
+
+    # From readings
+    tag_id: str
+    sample_count: int
+    good_count: int
+    bad_count: int
+    uncertain_count: int
+    mean: float | None = None
+    std: float | None = None
+    min: float | None = None
+    max: float | None = None
+
+    # From Alarms
+    alarm_count: int = 0
     alarm_by_severity: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
 class Report:
     """Full report for the run for each site."""
-    run_id:        str
-    site_id:       str
-    channel_stats: dict[str, ChannelStats]   # keyed by tag_id
-    total_alarms:  int
-    generated_at:  str                        # Timestamp as ISO-8601 UTC string
+
+    run_id: str
+    site_id: str
+    channel_stats: dict[str, ChannelStats]  # keyed by tag_id
+    total_alarms: int
+    generated_at: str  # Timestamp as ISO-8601 UTC string
 
 
 class ReportBuilder:
@@ -55,15 +56,15 @@ class ReportBuilder:
 
     def __init__(
         self,
-        channel_dfs:   dict[str, pd.DataFrame],
+        channel_dfs: dict[str, pd.DataFrame],
         alarm_records: list[dict],
-        run_id:        str,
-        site_id:       str,
+        run_id: str,
+        site_id: str,
     ) -> None:
-        self.channel_dfs   = channel_dfs
+        self.channel_dfs = channel_dfs
         self.alarm_records = alarm_records
-        self.run_id        = run_id
-        self.site_id       = site_id
+        self.run_id = run_id
+        self.site_id = site_id
 
         # [INIT] Confirm what the builder received before any computation starts
         # print(f"[ReportBuilder] init  run_id={run_id!r}  site_id={site_id!r}  "
@@ -90,14 +91,14 @@ class ReportBuilder:
 
     def _compute_stats(
         self,
-        tag_id:       str,
-        df:           pd.DataFrame,
+        tag_id: str,
+        df: pd.DataFrame,
         alarm_counts: dict[str, dict[str, int]],
     ) -> ChannelStats:
         # quality column: 0=Good 1=Bad 2=Uncertain — matches ArchiveWriter.QUALITY_MAP
         good = df[df["quality"] == 0]["value"]
-        bad_count  = int((df["quality"] == 1).sum())
-        unc_count  = int((df["quality"] == 2).sum())
+        bad_count = int((df["quality"] == 1).sum())
+        unc_count = int((df["quality"] == 2).sum())
 
         if good.empty:
             # [WARN] Flag a channel where every reading was bad/uncertain
@@ -105,9 +106,9 @@ class ReportBuilder:
             mean = std = mn = mx = None
         else:
             mean = float(good.mean())
-            std  = float(good.std(ddof=0))   # population std — consistent with numpy
-            mn   = float(good.min())
-            mx   = float(good.max())
+            std = float(good.std(ddof=0))  # population std — consistent with numpy
+            mn = float(good.min())
+            mx = float(good.max())
 
         counts = alarm_counts.get(tag_id, {})
 
@@ -122,9 +123,9 @@ class ReportBuilder:
             bad_count=bad_count,
             uncertain_count=unc_count,
             mean=round(mean, 4) if mean is not None else None,
-            std=round(std,  4) if std  is not None else None,
-            min=round(mn,   4) if mn   is not None else None,
-            max=round(mx,   4) if mx   is not None else None,
+            std=round(std, 4) if std is not None else None,
+            min=round(mn, 4) if mn is not None else None,
+            max=round(mx, 4) if mx is not None else None,
             alarm_count=sum(counts.values()),
             alarm_by_severity=counts,
         )

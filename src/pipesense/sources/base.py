@@ -1,6 +1,7 @@
 """Abstract base class for all pipesense data sources so each can be configured independently and more can be added in the future"""
+
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 
@@ -11,6 +12,7 @@ class TagReading:
     Mirrors what PI typically stores for each tag: value, timestamp, quality.
     Quality follows OPC-UA/PI convention: 'Good', 'Bad', 'Uncertain'.
     """
+
     tag_id: str
     value: float
     timestamp: datetime
@@ -35,6 +37,7 @@ class TagReading:
 @dataclass
 class SourceStatus:
     """Connection status details for a data source."""
+
     connected: bool
     source_type: str
     endpoint: str

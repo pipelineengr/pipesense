@@ -1,8 +1,8 @@
-import pytest
 import sqlite3
-
-from contextlib import closing
 from datetime import datetime, timezone
+
+import pytest
+
 from pipesense.config.loader import load_config
 from pipesense.detection.base import AlarmEvent, AlarmSeverity
 from pipesense.storage.alarm_log import AlarmLog
@@ -48,9 +48,12 @@ def test_open_creates_alarms_table(tmp_log):
         pass
     connection = sqlite3.connect(tmp_log.path)
     try:
-        tables = {r[0] for r in connection.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()}
+        tables = {
+            r[0]
+            for r in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
     finally:
         connection.close()
     assert "alarms" in tables
@@ -62,23 +65,25 @@ def test_append_inserts_correct_fields(tmp_log):
     records = tmp_log.read_all()
     assert len(records) == 1
     r = records[0]
-    assert r["tag_id"]   == "FT-101"
+    assert r["tag_id"] == "FT-101"
     assert r["severity"] == "HIGH"
     assert r["detector"] == "spike"
-    assert r["site_id"]  == "LACT-001"
-    assert r["run_id"]   == "test_run"
+    assert r["site_id"] == "LACT-001"
+    assert r["run_id"] == "test_run"
 
 
 def test_detector_field_not_detector_type(tmp_log):
     """Regression guard — column must be 'detector', never 'detector_type'."""
     with tmp_log as log:
         log.append(_event(detector="drift"))
-    connection = sqlite3.connect(tmp_log.path)    
+    connection = sqlite3.connect(tmp_log.path)
     try:
-        cols = [c[1] for c in connection.execute("PRAGMA table_info(alarms)").fetchall()]
+        cols = [
+            c[1] for c in connection.execute("PRAGMA table_info(alarms)").fetchall()
+        ]
     finally:
         connection.close()
-    assert "detector"      in cols
+    assert "detector" in cols
     assert "detector_type" not in cols
 
 

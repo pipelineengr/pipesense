@@ -1,8 +1,8 @@
-"""Detection Engine Class to run all the detectors. Currently, drift and spike types have been added. 
+"""Detection Engine Class to run all the detectors. Currently, drift and spike types have been added.
 If more are needed, functions for them will be written under their own class/file and imported here.
 """
+
 from __future__ import annotations
-from typing import Optional
 
 from pipesense.config.schema import ChannelConfig, DetectionConfig, SiteConfig
 from pipesense.detection.base import AlarmEvent, Detector
@@ -15,7 +15,7 @@ class DetectionEngine:
     def __init__(
         self,
         site: SiteConfig,
-        baseline_stats: Optional[dict[str, dict[str, float]]] = None,
+        baseline_stats: dict[str, dict[str, float]] | None = None,
     ) -> None:
         self._site = site
         self._baseline_stats = baseline_stats or {}
@@ -56,16 +56,16 @@ class DetectionEngine:
             # Print statement to show which detectors are configured for each channel
             # in the YAML file enable this to confirm all the detectors are showing up
             # and to check if any channels that got skipped due to missing baseline values.
-            
+
             # print(f"[DetectionEngine] built channel={ch.tag_id} "
             #       f"detectors={[type(d).__name__ for d in detectors]}")
 
     def process(self, reading: TagReading) -> list[AlarmEvent]:
         detectors = self._detectors.get(reading.tag_id, [])
         # Print statement to show each reading as it is sent to the detectors
-        # enable this to verify the engine is receiving readings and matching 
+        # enable this to verify the engine is receiving readings and matching
         # them to the right signal in the channel.
-        
+
         # print(f"[DetectionEngine] routing tag={reading.tag_id} value={reading.value:.3f} "
         #       f"quality={reading.quality} to {len(detectors)} detector(s)")
 
@@ -77,19 +77,19 @@ class DetectionEngine:
 
         # Print statement to show alarm events collected from all detectors for this reading
         # enable this to see every alarm the engine surfaces before it reaches the caller.
-        
+
         # print(f"[DetectionEngine] tag={reading.tag_id} produced {len(events)} alarm(s): "
         #       f"{[e.severity.value + '/' + e.detector for e in events]}")
         return events
 
-    def reset(self, tag_id: Optional[str] = None) -> None:
+    def reset(self, tag_id: str | None = None) -> None:
         targets = [tag_id] if tag_id else list(self._detectors.keys())
-        
+
         # Print statement to show which channels are being reset
         # enable this to confirm reset() is targeting the right tags.
-        
+
         # print(f"[DetectionEngine] resetting detectors for tags={targets}")
-        
+
         for tid in targets:
             for det in self._detectors.get(tid, []):
                 det.reset()

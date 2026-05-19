@@ -4,6 +4,7 @@ simulators → DetectionEngine → ArchiveWriter/AlarmLog → ArchiveReader → 
 No mocks — everything runs against a real SQLite DB written by the actual run pipeline.
 All created here for the tests
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -22,9 +23,9 @@ from pipesense.storage.alarm_log import AlarmLog
 from pipesense.storage.archive import ArchiveWriter
 
 CONFIG_PATH = "config/site_default.yaml"
-N_CYCLES    = 30     # poll cycles — enough for detectors to accumulate samples
-RUN_ID      = "report_e2e"
-SITE_ID     = "LACT-001"
+N_CYCLES = 30  # poll cycles — enough for detectors to accumulate samples
+RUN_ID = "report_e2e"
+SITE_ID = "LACT-001"
 
 
 @pytest.fixture
@@ -37,23 +38,24 @@ def e2e_db(tmp_path) -> Path:
       3. Write reading to ArchiveWriter
       4. Pass reading through DetectionEngine → write any alarms to AlarmLog
     """
-    cfg  = load_config(CONFIG_PATH)
+    cfg = load_config(CONFIG_PATH)
     site = cfg.sites[0]
-    db   = tmp_path / "pipesense.db"
+    db = tmp_path / "pipesense.db"
 
     # Print statement to confirm which site and DB path the fixture is using.
     # print(f"e2e_db  site={site.id!r}  db={db}  cycles={N_CYCLES}")
 
     engine = DetectionEngine(site)
 
-    with ArchiveWriter(db, run_id=RUN_ID, site_id=SITE_ID) as aw, \
-         AlarmLog(db,     run_id=RUN_ID, site_id=SITE_ID) as log:
-
+    with (
+        ArchiveWriter(db, run_id=RUN_ID, site_id=SITE_ID) as aw,
+        AlarmLog(db, run_id=RUN_ID, site_id=SITE_ID) as log,
+    ):
         for cycle in range(N_CYCLES):
             now = datetime.now(timezone.utc)
             for ch in site.channels:
                 sim_fn = CHANNEL_SIMULATORS.get(ch.type)
-                value  = sim_fn() if sim_fn else 0.0
+                value = sim_fn() if sim_fn else 0.0
 
                 reading = TagReading(
                     tag_id=ch.id,
@@ -78,10 +80,9 @@ def e2e_db(tmp_path) -> Path:
 
 
 class TestArchiveReaderIntegration:
-
     def test_run_id_in_list_runs(self, e2e_db):
         """The run written by the fixture must appear in list_runs()."""
-        r    = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID)
+        r = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID)
         runs = r.list_runs()
 
         # Print statement to see all run_ids found in the e2e DB.
@@ -91,8 +92,8 @@ class TestArchiveReaderIntegration:
 
     def test_all_channels_loaded(self, e2e_db):
         """load_by_channel() must return one entry per channel defined in config."""
-        cfg  = load_config(CONFIG_PATH)
-        dfs  = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID).load_by_channel()
+        cfg = load_config(CONFIG_PATH)
+        dfs = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID).load_by_channel()
         expected = {ch.id for ch in cfg.sites[0].channels}
 
         # Print statement to compare loaded keys vs expected channel ids.
@@ -104,19 +105,19 @@ class TestArchiveReaderIntegration:
         """Each channel must have exactly N_CYCLES rows — one per poll cycle."""
         dfs = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID).load_by_channel()
         for tag, df in dfs.items():
-
             # Print statement to check per-channel row counts against N_CYCLES.
             # print(f"tag={tag!r}  rows={len(df)}  expected={N_CYCLES}")
 
-            assert len(df) == N_CYCLES, f"{tag}: expected {N_CYCLES} rows, got {len(df)}"
+            assert len(df) == N_CYCLES, (
+                f"{tag}: expected {N_CYCLES} rows, got {len(df)}"
+            )
 
 
 class TestReportBuilderIntegration:
-
     @pytest.fixture
     def report(self, e2e_db):
         """Build a Report from the full e2e DB — shared across builder integration tests."""
-        r      = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID)
+        r = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID)
         alarms = AlarmLog(e2e_db, run_id=RUN_ID, site_id=SITE_ID).read_all()
 
         # Print statement to see total alarm count before the builder runs.
@@ -132,12 +133,13 @@ class TestReportBuilderIntegration:
     def test_stats_are_non_null(self, report):
         """All channels had Good readings so mean/std/min/max must not be None."""
         for tag, cs in report.channel_stats.items():
-
             # Print statement to inspect per-channel stats computed from real simulator values.
             # print(f"tag={tag!r}  mean={cs.mean}  std={cs.std}  "
             #       f"min={cs.min}  max={cs.max}  alarms={cs.alarm_count}")
 
-            assert cs.mean is not None, f"{tag}: mean is None — all readings may be bad quality"
+            assert cs.mean is not None, (
+                f"{tag}: mean is None — all readings may be bad quality"
+            )
             assert cs.sample_count == N_CYCLES
 
     def test_total_alarm_count_matches_log(self, e2e_db, report):
@@ -150,15 +152,14 @@ class TestReportBuilderIntegration:
         assert report.total_alarms == len(alarms)
 
     def test_run_and_site_ids(self, report):
-        assert report.run_id  == RUN_ID
+        assert report.run_id == RUN_ID
         assert report.site_id == SITE_ID
 
 
 class TestReportWriterIntegration:
-
     def test_report_file_written(self, e2e_db, tmp_path):
         """Full chain — DB → reader → builder → writer — must produce a file."""
-        r      = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID)
+        r = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID)
         alarms = AlarmLog(e2e_db, run_id=RUN_ID, site_id=SITE_ID).read_all()
         report = ReportBuilder(
             channel_dfs=r.load_by_channel(),
@@ -168,19 +169,19 @@ class TestReportWriterIntegration:
         ).build()
 
         out = tmp_path / "reports" / "summary.md"
-        md  = ReportWriter(out).write([report])
+        md = ReportWriter(out).write([report])
 
         # Print statement to eyeball the first 300 chars of the final Markdown output.
         # print(f"md preview:\n{md[:300]}")
 
         assert out.exists()
         assert SITE_ID in md
-        assert RUN_ID  in md
+        assert RUN_ID in md
 
     def test_all_channel_tags_in_output(self, e2e_db, tmp_path):
         """Every channel id from config must appear in the rendered Markdown."""
-        cfg    = load_config(CONFIG_PATH)
-        r      = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID)
+        cfg = load_config(CONFIG_PATH)
+        r = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID)
         alarms = AlarmLog(e2e_db, run_id=RUN_ID, site_id=SITE_ID).read_all()
         report = ReportBuilder(
             channel_dfs=r.load_by_channel(),
@@ -192,7 +193,6 @@ class TestReportWriterIntegration:
         md = ReportWriter(tmp_path / "out.md").write([report])
 
         for ch in cfg.sites[0].channels:
-
             # Print statement to check each channel id as it's searched in the output.
             # print(f"checking channel {ch.id!r} in md")
 
@@ -200,7 +200,7 @@ class TestReportWriterIntegration:
 
     def test_markdown_structure(self, e2e_db, tmp_path):
         """The rendered Markdown must contain the three expected section headers."""
-        r      = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID)
+        r = ArchiveReader(e2e_db, run_id=RUN_ID, site_id=SITE_ID)
         alarms = AlarmLog(e2e_db, run_id=RUN_ID, site_id=SITE_ID).read_all()
         report = ReportBuilder(
             channel_dfs=r.load_by_channel(),
@@ -211,5 +211,5 @@ class TestReportWriterIntegration:
         md = ReportWriter(tmp_path / "out.md").write([report])
 
         assert f"# Site Report: {SITE_ID}" in md
-        assert "## Channel Statistics"     in md
-        assert "## Alarm Summary"          in md
+        assert "## Channel Statistics" in md
+        assert "## Alarm Summary" in md

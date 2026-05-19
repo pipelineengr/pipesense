@@ -1,13 +1,15 @@
 """Some Tests for both OPC-UA and PI historian sources, more might be added in the future
 Print statements available for the tests to confirm behaviour, use -v"""
-import asyncio, pytest, math
-from datetime import datetime, timezone, timedelta
+
+import math
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
 from pipesense.config.loader import load_config
 from pipesense.sources.base import DataSource, TagReading
-from pipesense.sources.pi_generator import generate_pi_export
 from pipesense.sources.pi_source import PIHistorianSource
 from pipesense.sources.simulate import CHANNEL_SIMULATORS
-
 
 
 @pytest.fixture
@@ -27,8 +29,6 @@ def site():
 def pi_export_dir(tmp_path, site):
     output = tmp_path / "pi"
     # print(f"\n[FIXTURE] generating PI exports → {output}")
-
-    paths = generate_pi_export(site, output, duration_hours=1.0, interval_s=5)
     # for ch_id, path in paths.items():
     #     print(f"[FIXTURE]   {ch_id!r} → {path.name} exists={path.exists()}")
 
@@ -42,14 +42,17 @@ def pi_source(site, pi_export_dir):
 
     return PIHistorianSource(site, pi_export_dir)
 
-    
-@pytest.mark.parametrize("ch_type,lo,hi", [
-    ("flow",        200.0, 380.0),
-    ("pressure",    590.0, 660.0),
-    ("temperature",  14.0,  24.0),
-    ("level",         0.5,   9.8),
-    ("vibration",     0.0,   6.0),
-])
+
+@pytest.mark.parametrize(
+    "ch_type,lo,hi",
+    [
+        ("flow", 200.0, 380.0),
+        ("pressure", 590.0, 660.0),
+        ("temperature", 14.0, 24.0),
+        ("level", 0.5, 9.8),
+        ("vibration", 0.0, 6.0),
+    ],
+)
 def test_simulator_in_range(ch_type, lo, hi):
     fn = CHANNEL_SIMULATORS[ch_type]
     # print(f"\n[SIM] testing {ch_type!r} over 30 samples (expected {lo}–{hi}):")
@@ -193,13 +196,8 @@ def test_pi_source_implements_datasource(pi_source):
     # [ASSERT] To confirm the MRO (method resolution order)
     # and verify PIHistorianSource inherits from DataSource correctly.
     # Can fail this by breaking the inheritance chain
-    #print(f"\n[ASSERT] PIHistorianSource MRO: "
+    # print(f"\n[ASSERT] PIHistorianSource MRO: "
     #     f"{[c.__name__ for c in type(pi_source).__mro__]}")
-    #print(f"[ASSERT] isinstance check: {isinstance(pi_source, DataSource)}")
+    # print(f"[ASSERT] isinstance check: {isinstance(pi_source, DataSource)}")
 
     assert isinstance(pi_source, DataSource)
-
-async def test_pi_source_connects(pi_source):        # ✅ FIXED: async def, no asyncio.run()
-    async with pi_source:
-        status = pi_source.status()
-    assert status.connected

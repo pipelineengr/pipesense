@@ -1,9 +1,9 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pipesense.sources.base import TagReading
 
@@ -16,7 +16,7 @@ class AlarmSeverity(str, Enum):
 
 @dataclass
 class AlarmEvent:
-    #Used to implement an Alarm Event when it happens, like crossing the low or high-high limit
+    # Used to implement an Alarm Event when it happens, like crossing the low or high-high limit
     tag_id: str
     severity: AlarmSeverity
     detector: str
@@ -49,15 +49,15 @@ class AlarmEvent:
 
 
 class Detector(ABC):
-    # A Detector class to serve as a template for child classes through abstraction 
+    # A Detector class to serve as a template for child classes through abstraction
     # Not implemented here, each detector will have it's own file
     def __init__(self, tag_id: str) -> None:
-        self.tag_id = tag_id    #Tracking ID used when initializing a new detector
+        self.tag_id = tag_id  # Tracking ID used when initializing a new detector
         self._reading_count = 0
-    
-    #Required functions within the created detectors
+
+    # Required functions within the created detectors
     @abstractmethod
-    def update(self, reading: TagReading) -> Optional[AlarmEvent]: ...
+    def update(self, reading: TagReading) -> AlarmEvent | None: ...
 
     @abstractmethod
     def reset(self) -> None: ...
