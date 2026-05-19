@@ -9,6 +9,7 @@ import pytest
 from pipesense.config.loader import load_config
 from pipesense.sources.base import DataSource, TagReading
 from pipesense.sources.pi_source import PIHistorianSource
+from pipesense.sources.pi_generator import generate_pi_export
 from pipesense.sources.simulate import CHANNEL_SIMULATORS
 
 
@@ -28,7 +29,10 @@ def site():
 @pytest.fixture
 def pi_export_dir(tmp_path, site):
     output = tmp_path / "pi"
+    output.mkdir(parents=True, exist_ok=True)
     # print(f"\n[FIXTURE] generating PI exports → {output}")
+
+    generate_pi_export(site, output, duration_hours=1.0, interval_s=5)
     # for ch_id, path in paths.items():
     #     print(f"[FIXTURE]   {ch_id!r} → {path.name} exists={path.exists()}")
 

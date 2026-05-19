@@ -10,6 +10,8 @@ pipesense polls live instrument data, compares it against a stable baseline, and
 
 Everything — sites, channels, thresholds, detection parameters — is driven by YAML config. Swapping in a new site means editing a file, not touching code.
 
+Database and report for a sample 30 minute run are located at data/PipesenseStorage.db and reports/run_report.md
+
 ---
 
 ## Project layout (This is what version 1.0 would look like)
