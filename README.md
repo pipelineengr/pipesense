@@ -126,20 +126,6 @@ detection:
 Thresholds are validated at load time — `low_low < low < high < high_high` is enforced, and the loader will reject configs that violate this ordering.
 Configurations without the required parameters will also be rejected.
 
----
-
-## Detection
-
-TBA
-
----
-
-## Storage
-
-TBA
-
----
-
 ## Running tests
 
 ```bash
@@ -162,9 +148,3 @@ CI runs the matrix on Python 3.10+, planning to cover atleast 80%.
 | `click` | CLI |
 | `numpy` | Rolling stats, Cumulative Sum |
 | `pytest` | Test suite |
-
----
-
-## Design notes
-
-TBA
